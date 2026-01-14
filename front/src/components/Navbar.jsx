@@ -11,20 +11,56 @@ function Navbar() {
         navigate('/login');
     };
 
+    // Fonction pour obtenir l'URL complète de la photo
+    const getPhotoUrl = (photoPath) => {
+        if (!photoPath) return null;
+        // Si le chemin commence par /uploads, ajouter /users devant
+        if (photoPath.startsWith('/uploads/')) {
+            return `/users${photoPath}`;
+        }
+        return photoPath;
+    };
+
+    const photoUrl = user?.photo ? getPhotoUrl(user.photo) : null;
+
     return (
         <nav className="navbar">
             <div className="navbar-container">
                 <div className="navbar-logo">
-                    <a href="/">Mon Application</a>
+                    <button onClick={() => navigate('/')} className="logo-button">
+                        App Du Cul
+                    </button>
                 </div>
 
                 {isAuthenticated ? (
                     <div className="navbar-user">
-                        <span className="user-name">
-                            {user?.prenom || user?.nom
-                                ? `${user.prenom} ${user.nom}`.trim()
-                                : user?.email}
-                        </span>
+                        <button onClick={() => navigate('/profile')} className="profile-button">
+                            {photoUrl ? (
+                                <img
+                                    src={photoUrl}
+                                    alt="Profile"
+                                    className="profile-avatar"
+                                    onError={(e) => {
+                                        // En cas d'erreur, afficher le placeholder
+                                        e.target.style.display = 'none';
+                                        const placeholder = e.target.nextSibling;
+                                        if (placeholder) {
+                                            placeholder.style.display = 'flex';
+                                        }
+                                    }}
+                                />
+                            ) : null}
+                            {(!photoUrl || !user?.photo) && (
+                                <div className="profile-avatar-placeholder">
+                                    {user?.prenom?.[0] || 'U'}{user?.nom?.[0] || 'N'}
+                                </div>
+                            )}
+                            <span className="user-name">
+                                {user?.prenom || user?.nom
+                                    ? `${user.prenom} ${user.nom}`.trim()
+                                    : user?.email}
+                            </span>
+                        </button>
                         <button onClick={handleLogout} className="logout-button">
                             Déconnexion
                         </button>
