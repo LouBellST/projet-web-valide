@@ -35,6 +35,9 @@ function Login() {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
 
+            // Déclencher l'événement pour notifier useAuth
+            window.dispatchEvent(new Event('auth-change'));
+
             // Rediriger vers la page principale
             navigate('/');
 

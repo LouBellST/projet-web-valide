@@ -4,7 +4,7 @@ import '../styles/Navbar.css';
 
 function Navbar() {
     const navigate = useNavigate();
-    const { user, logout } = useAuth();
+    const { user, isAuthenticated, logout } = useAuth();
 
     const handleLogout = () => {
         logout();
@@ -18,16 +18,27 @@ function Navbar() {
                     <a href="/">Mon Application</a>
                 </div>
 
-                <div className="navbar-user">
-                    <span className="user-name">
-                        {user?.prenom || user?.nom
-                            ? `${user.prenom} ${user.nom}`.trim()
-                            : user?.email}
-                    </span>
-                    <button onClick={handleLogout} className="logout-button">
-                        Déconnexion
-                    </button>
-                </div>
+                {isAuthenticated ? (
+                    <div className="navbar-user">
+                        <span className="user-name">
+                            {user?.prenom || user?.nom
+                                ? `${user.prenom} ${user.nom}`.trim()
+                                : user?.email}
+                        </span>
+                        <button onClick={handleLogout} className="logout-button">
+                            Déconnexion
+                        </button>
+                    </div>
+                ) : (
+                    <div className="navbar-auth-links">
+                        <button onClick={() => navigate('/login')} className="login-link">
+                            Connexion
+                        </button>
+                        <button onClick={() => navigate('/register')} className="register-link">
+                            Inscription
+                        </button>
+                    </div>
+                )}
             </div>
         </nav>
     );

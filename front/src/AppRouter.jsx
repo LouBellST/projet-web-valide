@@ -14,7 +14,7 @@ function ProtectedRoute({ children }) {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                height: '100vh'
+                height: '100%'
             }}>
                 <p>Chargement...</p>
             </div>
@@ -29,30 +29,32 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRouter() {
-    const { isAuthenticated } = useAuth();
-
     return (
         <BrowserRouter>
-            {isAuthenticated && <Navbar />}
+            {/* La Navbar est toujours affichée */}
+            <Navbar />
 
-            <Routes>
-                {/* Routes publiques */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+            {/* Wrapper pour le contenu avec classe app-content */}
+            <div className="app-content">
+                <Routes>
+                    {/* Routes publiques */}
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
 
-                {/* Routes protégées */}
-                <Route
-                    path="/"
-                    element={
-                        <ProtectedRoute>
-                            <App />
-                        </ProtectedRoute>
-                    }
-                />
+                    {/* Routes protégées */}
+                    <Route
+                        path="/"
+                        element={
+                            <ProtectedRoute>
+                                <App />
+                            </ProtectedRoute>
+                        }
+                    />
 
-                {/* Redirection par défaut */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                    {/* Redirection par défaut */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </div>
         </BrowserRouter>
     );
 }
