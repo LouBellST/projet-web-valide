@@ -1,0 +1,140 @@
+services:
+  # Infrastructure Services
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: td8-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:latest
+    container_name: td8-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+
+  mongodb:
+    image: mongo:8.0
+    container_name: td8-mongo
+    environment:
+      - MONGO_INITDB_DATABASE=td8
+    volumes:
+      - mongodb_data:/data/db
+
+  # Micro Services
+  auth:
+    container_name: td8-auth
+    build:
+      context: auth
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:80"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=authdb
+      - JWT_SECRET=your-super-secret-key-change-in-production
+    volumes:
+      - ./auth/src:/app/src
+    depends_on:
+      - mongodb
+
+  users:
+    container_name: td8-users
+    build:
+      context: users
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:80"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=td8
+    volumes:
+      - ./users/src:/app/src
+    depends_on:
+      - mongodb
+
+  groups:
+    container_name: td8-groups
+    build:
+      context: groups
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3002:80"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=td7
+      - REDIS_HOST=redis
+      - RABBIT_URL=amqp://rabbitmq
+      - RABBIT_EXCHANGE=groups.events
+    volumes:
+      - ./groups/src:/app/src
+    depends_on:
+      - users
+      - mongodb
+      - redis
+      - rabbitmq
+
+  front:
+    container_name: td8-front
+    build:
+      context: front
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:80"
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    depends_on:
+      - auth
+      - users
+      - groups
+
+  notifier:
+    container_name: td8-notifier
+    build:
+      context: notifier
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3003:80"
+    environment:
+      - RABBIT_URL=amqp://rabbitmq
+      - RABBIT_EXCHANGE=groups.events
+    volumes:
+      - ./notifier/src:/app/src
+    depends_on:
+      - rabbitmq
+
+  reverseproxy:
+    container_name: td8-reverse
+    build:
+      context: reverse-proxy
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - auth
+      - users
+      - groups
+    volumes:
+      - ./reverse-proxy/log:/var/log/nginx
+    ports:
+      - "8080:80"
+
+  dashboard:
+    container_name: td8-dashboard
+    build:
+      context: dashboard
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - notifier
+    ports:
+      - "8081:80"
+
+volumes:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:

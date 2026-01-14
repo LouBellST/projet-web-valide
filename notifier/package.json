@@ -1,0 +1,16 @@
+{
+  "name": "notifier",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "express": "^5.1.0",
+    "morgan": "^1.10.1"
+  }
+}

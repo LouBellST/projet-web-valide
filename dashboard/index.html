@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Supervision Cache</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 400px; }
+        .stat { margin: 10px 0; font-size: 1.2em; }
+        .hit { color: green; }
+        .miss { color: red; }
+        .rate { font-weight: bold; border-top: 1px solid #ccc; pt: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Supervision de l'activité</h1>
+    
+    <div class="card">
+        <div class="stat">Hits : <span id="hits" class="hit">0</span></div>
+        <div class="stat">Misses : <span id="misses" class="miss">0</span></div>
+        <div class="stat">Total requêtes : <span id="total">0</span></div>
+        <div class="stat rate">Taux d'échec (Miss Rate) : <span id="missRate">0</span>%</div>
+    </div>
+
+    <script> 
+        const source = new EventSource(`/notifier/events`);
+
+        source.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'cache.stats') {
+                document.getElementById('hits').textContent = data.hits;
+                document.getElementById('misses').textContent = data.misses;
+                document.getElementById('total').textContent = data.total;
+                document.getElementById('missRate').textContent = data.missRate;
+            }
+        };
+
+        source.onerror = (err) => {
+            console.error("Erreur SSE:", err);
+        };
+    </script>
+</body>
+</html>
