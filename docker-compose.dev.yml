@@ -60,6 +60,22 @@ services:
     depends_on:
       - mongodb
 
+  posts:
+    container_name: td8-posts
+    build:
+      context: posts
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3004:80"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=postsdb
+    volumes:
+      - ./posts/src:/app/src
+      - posts_uploads:/app/uploads
+    depends_on:
+      - mongodb
+
   groups:
     container_name: td8-groups
     build:
@@ -94,6 +110,7 @@ services:
     depends_on:
       - auth
       - users
+      - posts
       - groups
 
   notifier:
@@ -119,6 +136,7 @@ services:
     depends_on:
       - auth
       - users
+      - posts
       - groups
     volumes:
       - ./reverse-proxy/log:/var/log/nginx
@@ -130,3 +148,4 @@ volumes:
   redis_data:
   rabbitmq_data:
   users_uploads:
+  posts_uploads:

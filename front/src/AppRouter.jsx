@@ -1,13 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/useAuth';
-import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import App from './App';
+import Feed from './pages/Feed';
+import TagFeed from './pages/TagFeed';
 import Profile from './pages/Profile';
+import Navbar from './components/Navbar';
+import PublicProfile from './pages/PublicProfile';
 
 function ProtectedRoute({ children }) {
-    const { isAuthenticated, loading } = useAuth();
+    const { user, loading } = useAuth();
 
     if (loading) {
         return (
@@ -15,15 +17,47 @@ function ProtectedRoute({ children }) {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                height: '100%'
+                height: '100vh',
+                fontSize: '1.2rem',
+                color: '#666'
             }}>
-                <p>Chargement...</p>
+                Chargement...
             </div>
         );
     }
 
-    if (!isAuthenticated) {
+    if (!user) {
         return <Navigate to="/login" replace />;
+    }
+
+    return (
+        <>
+            <Navbar />
+            {children}
+        </>
+    );
+}
+
+function PublicRoute({ children }) {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                fontSize: '1.2rem',
+                color: '#666'
+            }}>
+                Chargement...
+            </div>
+        );
+    }
+
+    if (user) {
+        return <Navigate to="/" replace />;
     }
 
     return children;
@@ -32,38 +66,63 @@ function ProtectedRoute({ children }) {
 function AppRouter() {
     return (
         <BrowserRouter>
-            {/* La Navbar est toujours affichée */}
-            <Navbar />
+            <Routes>
+                {/* Routes publiques */}
+                <Route
+                    path="/login"
+                    element={
+                        <PublicRoute>
+                            <Login />
+                        </PublicRoute>
+                    }
+                />
+                <Route
+                    path="/register"
+                    element={
+                        <PublicRoute>
+                            <Register />
+                        </PublicRoute>
+                    }
+                />
 
-            {/* Wrapper pour le contenu avec classe app-content */}
-            <div className="app-content">
-                <Routes>
-                    {/* Routes publiques */}
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+                {/* Routes protégées */}
+                <Route
+                    path="/"
+                    element={
+                        <ProtectedRoute>
+                            <Feed />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/profile"
+                    element={
+                        <ProtectedRoute>
+                            <Profile />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/tags/:tag"
+                    element={
+                        <ProtectedRoute>
+                            <TagFeed />
+                        </ProtectedRoute>
+                    }
+                />
 
-                    {/* Routes protégées */}
-                    <Route
-                        path="/"
-                        element={
-                            <ProtectedRoute>
-                                <App />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/profile"
-                        element={
-                            <ProtectedRoute>
-                                <Profile />
-                            </ProtectedRoute>
-                        }
-                    />
+                <Route
+                    path="/user/:userId"
+                    element={
+                        <ProtectedRoute>
+                            <PublicProfile />
+                        </ProtectedRoute>
+                    }
+                />
 
-                    {/* Redirection par défaut */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </div>
+                {/* Redirection par défaut */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
         </BrowserRouter>
     );
 }

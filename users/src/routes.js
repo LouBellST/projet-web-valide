@@ -67,7 +67,11 @@ router.get('/', (req, res) => {
             'PATCH /users/:userId/profile': 'Mettre à jour partiellement le profil',
             'POST /users/:userId/photo': 'Upload photo de profil',
             'DELETE /users/:userId': 'Supprimer un profil',
-            'GET /users/email/:email': 'Trouver un profil par email'
+            'GET /users/email/:email': 'Trouver un profil par email',
+            'POST /users/:userId/follow': 'Suivre un utilisateur',
+            'DELETE /users/:userId/follow': 'Ne plus suivre un utilisateur',
+            'GET /users/:userId/following': 'Liste des abonnements',
+            'GET /users/:userId/followers': 'Liste des abonnés'
         }
     });
 });
@@ -120,6 +124,7 @@ router.get('/users/:userId', userDetailLimiter, async (req, res) => {
     try {
         const db = getDB();
         const { userId } = req.params;
+        const { currentUserId } = req.query;
 
         const profile = await db.collection('profiles').findOne({ userId });
 
@@ -127,7 +132,26 @@ router.get('/users/:userId', userDetailLimiter, async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        res.json(profile);
+        // Ajouter les stats de follow
+        const followersCount = await db.collection('follows').countDocuments({ followingId: userId });
+        const followingCount = await db.collection('follows').countDocuments({ followerId: userId });
+        
+        // Vérifier si l'utilisateur courant suit ce profil
+        let isFollowing = false;
+        if (currentUserId && currentUserId !== userId) {
+            const follow = await db.collection('follows').findOne({
+                followerId: currentUserId,
+                followingId: userId
+            });
+            isFollowing = !!follow;
+        }
+
+        res.json({
+            ...profile,
+            followersCount,
+            followingCount,
+            isFollowing
+        });
     } catch (error) {
         console.error('Error fetching user:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération du profil' });
@@ -171,7 +195,7 @@ router.post('/users', async (req, res) => {
 
         // Créer le profil utilisateur
         const newProfile = {
-            userId,           // ID de l'utilisateur dans authdb
+            userId,
             email,
             prenom: prenom || '',
             nom: nom || '',
@@ -241,9 +265,6 @@ router.patch('/users/:userId/profile', async (req, res) => {
         const { userId } = req.params;
         const updates = req.body;
 
-        console.log('PATCH /users/:userId/profile - userId:', userId);
-        console.log('Updates:', updates);
-
         // Filtrer les champs autorisés
         const allowedFields = ['prenom', 'nom', 'telephone', 'adressePostale'];
         const updateData = {};
@@ -256,15 +277,11 @@ router.patch('/users/:userId/profile', async (req, res) => {
 
         updateData.updatedAt = new Date();
 
-        console.log('Update data:', updateData);
-
         const result = await db.collection('profiles').findOneAndUpdate(
             { userId },
             { $set: updateData },
             { returnDocument: 'after' }
         );
-
-        console.log('Result:', result);
 
         if (!result) {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
@@ -348,6 +365,14 @@ router.delete('/users/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
+        // Supprimer aussi les relations de follow
+        await db.collection('follows').deleteMany({
+            $or: [
+                { followerId: userId },
+                { followingId: userId }
+            ]
+        });
+
         res.json({ message: 'Profil utilisateur supprimé' });
     } catch (error) {
         console.error('Error deleting profile:', error);
@@ -367,10 +392,15 @@ router.get('/users/:userId/stats', async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
+        const followersCount = await db.collection('follows').countDocuments({ followingId: userId });
+        const followingCount = await db.collection('follows').countDocuments({ followerId: userId });
+
         const stats = {
             profileCompleteness: calculateProfileCompleteness(profile),
-            accountAge: Math.floor((new Date() - new Date(profile.createdAt)) / (1000 * 60 * 60 * 24)), // jours
-            lastUpdate: profile.updatedAt
+            accountAge: Math.floor((new Date() - new Date(profile.createdAt)) / (1000 * 60 * 60 * 24)),
+            lastUpdate: profile.updatedAt,
+            followersCount,
+            followingCount
         };
 
         res.json(stats);
@@ -380,27 +410,190 @@ router.get('/users/:userId/stats', async (req, res) => {
     }
 });
 
+// ==================== FOLLOW SYSTEM ====================
 
+// POST /users/:userId/follow - Suivre un utilisateur
+router.post('/users/:userId/follow', async (req, res) => {
+    try {
+        const db = getDB();
+        const { userId } = req.params; // Utilisateur à suivre (followingId)
+        const { followerId } = req.body; // Utilisateur qui suit
 
-// Route admin pour supprimer TOUS les utilisateurs
+        if (!followerId) {
+            return res.status(400).json({ error: 'followerId requis' });
+        }
+
+        if (followerId === userId) {
+            return res.status(400).json({ error: 'Vous ne pouvez pas vous suivre vous-même' });
+        }
+
+        // Vérifier que les deux profils existent
+        const followerProfile = await db.collection('profiles').findOne({ userId: followerId });
+        const followingProfile = await db.collection('profiles').findOne({ userId });
+
+        if (!followerProfile || !followingProfile) {
+            return res.status(404).json({ error: 'Profil non trouvé' });
+        }
+
+        // Vérifier si déjà suivi
+        const existingFollow = await db.collection('follows').findOne({
+            followerId,
+            followingId: userId
+        });
+
+        if (existingFollow) {
+            return res.status(400).json({ error: 'Vous suivez déjà cet utilisateur' });
+        }
+
+        // Créer le follow
+        const follow = {
+            followerId,
+            followerName: `${followerProfile.prenom} ${followerProfile.nom}`.trim() || followerProfile.email,
+            followerPhoto: followerProfile.photo,
+            followingId: userId,
+            followingName: `${followingProfile.prenom} ${followingProfile.nom}`.trim() || followingProfile.email,
+            followingPhoto: followingProfile.photo,
+            followedAt: new Date()
+        };
+
+        await db.collection('follows').insertOne(follow);
+
+        res.status(201).json({
+            message: 'Utilisateur suivi',
+            follow
+        });
+    } catch (error) {
+        console.error('Error following user:', error);
+        res.status(500).json({ error: 'Erreur lors du suivi' });
+    }
+});
+
+// DELETE /users/:userId/follow - Ne plus suivre un utilisateur
+router.delete('/users/:userId/follow', async (req, res) => {
+    try {
+        const db = getDB();
+        const { userId } = req.params; // Utilisateur à ne plus suivre
+        const { followerId } = req.query; // Utilisateur qui arrête de suivre
+
+        if (!followerId) {
+            return res.status(400).json({ error: 'followerId requis' });
+        }
+
+        const result = await db.collection('follows').deleteOne({
+            followerId,
+            followingId: userId
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Relation de suivi non trouvée' });
+        }
+
+        res.json({ message: 'Ne suit plus cet utilisateur' });
+    } catch (error) {
+        console.error('Error unfollowing user:', error);
+        res.status(500).json({ error: 'Erreur lors de l\'arrêt du suivi' });
+    }
+});
+
+// GET /users/:userId/following - Liste des abonnements (utilisateurs suivis)
+router.get('/users/:userId/following', async (req, res) => {
+    try {
+        const db = getDB();
+        const { userId } = req.params;
+        const { limit = 100, page = 1 } = req.query;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const following = await db.collection('follows')
+            .find({ followerId: userId })
+            .sort({ followedAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .toArray();
+
+        const total = await db.collection('follows').countDocuments({ followerId: userId });
+
+        // Enrichir avec les profils
+        const enrichedFollowing = following.map(f => ({
+            userId: f.followingId,
+            name: f.followingName,
+            photo: f.followingPhoto,
+            followedAt: f.followedAt
+        }));
+
+        res.json({
+            following: enrichedFollowing,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: Math.ceil(total / parseInt(limit))
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching following:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des abonnements' });
+    }
+});
+
+// GET /users/:userId/followers - Liste des abonnés (utilisateurs qui suivent)
+router.get('/users/:userId/followers', async (req, res) => {
+    try {
+        const db = getDB();
+        const { userId } = req.params;
+        const { limit = 100, page = 1 } = req.query;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const followers = await db.collection('follows')
+            .find({ followingId: userId })
+            .sort({ followedAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .toArray();
+
+        const total = await db.collection('follows').countDocuments({ followingId: userId });
+
+        // Enrichir avec les profils
+        const enrichedFollowers = followers.map(f => ({
+            userId: f.followerId,
+            name: f.followerName,
+            photo: f.followerPhoto,
+            followedAt: f.followedAt
+        }));
+
+        res.json({
+            followers: enrichedFollowers,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: Math.ceil(total / parseInt(limit))
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching followers:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des abonnés' });
+    }
+});
+
+// Route admin pour supprimer TOUS les profils
 router.delete('/users/admin/delete-all', async (req, res) => {
     try {
         const db = getDB();
+        const result = await db.collection('profiles').deleteMany({});
         
-        // Supprimer tous les profils de usersdb
-        const profilesResult = await db.collection('profiles').deleteMany({});
+        console.log('Profils supprimés:', result.deletedCount);
         
-        console.log('✅ Tous les profils usersdb supprimés:', profilesResult.deletedCount);
+        // Supprimer aussi tous les follows
+        await db.collection('follows').deleteMany({});
         
         res.json({
-            message: 'Tous les utilisateurs supprimés',
-            deleted: {
-                profiles: profilesResult.deletedCount
-            },
-            warning: 'Les comptes authdb.users doivent être supprimés séparément'
+            message: 'Tous les profils supprimés',
+            deleted: { profiles: result.deletedCount }
         });
     } catch (error) {
-        console.error('Error deleting all users:', error);
+        console.error('Error:', error);
         res.status(500).json({ error: 'Erreur lors de la suppression' });
     }
 });

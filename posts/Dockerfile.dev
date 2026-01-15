@@ -1,0 +1,12 @@
+FROM node:25-alpine
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+# Créer le dossier uploads
+RUN mkdir -p uploads/posts
+
+EXPOSE 80
+CMD ["npm", "run", "dev"]
