@@ -1,0 +1,63 @@
+.floating-messages-btn {
+    position: fixed;
+    left: 2rem;
+    bottom: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    z-index: 999;
+    /* Toujours visible mais en dessous de la navbar */
+}
+
+.floating-messages-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.floating-messages-btn:active {
+    transform: translateY(-2px);
+}
+
+.floating-messages-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.unread-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #e74c3c;
+    color: white;
+    border-radius: 12px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+    border: 2px solid white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .floating-messages-btn {
+        left: 1rem;
+        bottom: 1rem;
+        width: 56px;
+        height: 56px;
+    }
+
+    .floating-messages-btn svg {
+        width: 22px;
+        height: 22px;
+    }
+}

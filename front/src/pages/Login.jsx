@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import '../styles/Auth.css';
 
-const API_URL = '/auth';
-
 function Login() {
-    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,32 +17,10 @@ function Login() {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Erreur lors de la connexion');
-            }
-
-            // Stocker le token dans le localStorage
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            // Déclencher l'événement pour notifier useAuth
-            window.dispatchEvent(new Event('auth-change'));
-
-            // Rediriger vers la page principale
+            await login(email, password);
             navigate('/');
-
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'Erreur de connexion');
         } finally {
             setLoading(false);
         }
@@ -67,8 +45,8 @@ function Login() {
                             id="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            required
                             placeholder="votre@email.com"
+                            required
                             disabled={loading}
                         />
                     </div>
@@ -80,10 +58,14 @@ function Login() {
                             id="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            required
                             placeholder="••••••••"
+                            required
                             disabled={loading}
                         />
+                    </div>
+
+                    <div className="auth-footer" style={{ marginTop: '0.5rem', marginBottom: '1.5rem', textAlign: 'right' }}>
+                        <Link to="/forgot-password">Mot de passe oublié ?</Link>
                     </div>
 
                     <button

@@ -3,9 +3,45 @@ import multer from 'multer';
 import path from 'path';
 import { getDB, ObjectId } from './db.js';
 import rateLimit from 'express-rate-limit';
+import amqp from 'amqplib';
 import fs from 'fs';
 
 const router = express.Router();
+
+const RABBIT_URL = process.env.RABBIT_URL || 'amqp://rabbitmq';
+
+// Connexion RabbitMQ
+let channel = null;
+
+async function connectRabbitMQ() {
+    try {
+        const connection = await amqp.connect(RABBIT_URL);
+        channel = await connection.createChannel();
+        await channel.assertQueue('emails.send', { durable: true });
+        console.log('Users service connected to RabbitMQ');
+    } catch (error) {
+        console.error('RabbitMQ connection error:', error);
+        console.log('Emails will not be sent');
+    }
+}
+
+connectRabbitMQ();
+
+// Fonction pour envoyer un email
+function sendEmail(emailData) {
+    if (channel) {
+        try {
+            channel.sendToQueue(
+                'emails.send',
+                Buffer.from(JSON.stringify(emailData)),
+                { persistent: true }
+            );
+            console.log(`Email queued: ${emailData.type} to ${emailData.email}`);
+        } catch (error) {
+            console.error('Error queueing email:', error);
+        }
+    }
+}
 
 // Configuration de multer pour l'upload de photos
 const storage = multer.diskStorage({
@@ -24,7 +60,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -54,7 +90,6 @@ router.use(async (req, res, next) => {
     next();
 });
 
-// GET / - Info sur le service
 router.get('/', (req, res) => {
     res.json({ 
         message: 'Users service API',
@@ -76,7 +111,6 @@ router.get('/', (req, res) => {
     });
 });
 
-// GET /users - Liste tous les profils
 router.get('/users', async (req, res) => {
     try {
         const db = getDB();
@@ -119,7 +153,6 @@ router.get('/users', async (req, res) => {
     }
 });
 
-// GET /users/:userId - Détails d'un profil
 router.get('/users/:userId', userDetailLimiter, async (req, res) => {
     try {
         const db = getDB();
@@ -132,11 +165,9 @@ router.get('/users/:userId', userDetailLimiter, async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        // Ajouter les stats de follow
         const followersCount = await db.collection('follows').countDocuments({ followingId: userId });
         const followingCount = await db.collection('follows').countDocuments({ followerId: userId });
         
-        // Vérifier si l'utilisateur courant suit ce profil
         let isFollowing = false;
         if (currentUserId && currentUserId !== userId) {
             const follow = await db.collection('follows').findOne({
@@ -158,7 +189,6 @@ router.get('/users/:userId', userDetailLimiter, async (req, res) => {
     }
 });
 
-// GET /users/email/:email - Trouver un profil par email
 router.get('/users/email/:email', async (req, res) => {
     try {
         const db = getDB();
@@ -177,7 +207,6 @@ router.get('/users/email/:email', async (req, res) => {
     }
 });
 
-// POST /users - Créer un profil utilisateur (appelé par le service auth lors de l'inscription)
 router.post('/users', async (req, res) => {
     try {
         const db = getDB();
@@ -187,13 +216,11 @@ router.post('/users', async (req, res) => {
             return res.status(400).json({ error: 'userId et email requis' });
         }
 
-        // Vérifier si le profil existe déjà
         const existingProfile = await db.collection('profiles').findOne({ userId });
         if (existingProfile) {
             return res.status(409).json({ error: 'Ce profil existe déjà' });
         }
 
-        // Créer le profil utilisateur
         const newProfile = {
             userId,
             email,
@@ -221,16 +248,13 @@ router.post('/users', async (req, res) => {
     }
 });
 
-// PUT /users/:userId - Mettre à jour un profil (complet)
 router.put('/users/:userId', async (req, res) => {
     try {
         const db = getDB();
         const { userId } = req.params;
         const { prenom, nom, email, telephone, adressePostale } = req.body;
 
-        const updateData = {
-            updatedAt: new Date()
-        };
+        const updateData = { updatedAt: new Date() };
 
         if (prenom !== undefined) updateData.prenom = prenom;
         if (nom !== undefined) updateData.nom = nom;
@@ -248,24 +272,19 @@ router.put('/users/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        res.json({
-            message: 'Profil mis à jour',
-            profile: result
-        });
+        res.json({ message: 'Profil mis à jour', profile: result });
     } catch (error) {
         console.error('Error updating profile:', error);
         res.status(500).json({ error: 'Erreur lors de la mise à jour du profil' });
     }
 });
 
-// PATCH /users/:userId/profile - Mettre à jour partiellement le profil
 router.patch('/users/:userId/profile', async (req, res) => {
     try {
         const db = getDB();
         const { userId } = req.params;
         const updates = req.body;
 
-        // Filtrer les champs autorisés
         const allowedFields = ['prenom', 'nom', 'telephone', 'adressePostale'];
         const updateData = {};
         
@@ -287,17 +306,13 @@ router.patch('/users/:userId/profile', async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        res.json({
-            message: 'Profil mis à jour',
-            profile: result
-        });
+        res.json({ message: 'Profil mis à jour', profile: result });
     } catch (error) {
         console.error('Error updating profile:', error);
         res.status(500).json({ error: 'Erreur lors de la mise à jour du profil' });
     }
 });
 
-// POST /users/:userId/photo - Upload photo de profil
 router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => {
     try {
         const db = getDB();
@@ -307,7 +322,6 @@ router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => 
             return res.status(400).json({ error: 'Aucune photo fournie' });
         }
 
-        // Récupérer l'ancienne photo pour la supprimer
         const profile = await db.collection('profiles').findOne({ userId });
         if (profile && profile.photo) {
             const oldPhotoPath = profile.photo.replace('/uploads/', 'uploads/');
@@ -320,12 +334,7 @@ router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => 
 
         const result = await db.collection('profiles').findOneAndUpdate(
             { userId },
-            { 
-                $set: { 
-                    photo: photoUrl,
-                    updatedAt: new Date()
-                }
-            },
+            { $set: { photo: photoUrl, updatedAt: new Date() } },
             { returnDocument: 'after' }
         );
 
@@ -333,24 +342,18 @@ router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => 
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        res.json({
-            message: 'Photo de profil mise à jour',
-            photo: photoUrl,
-            profile: result
-        });
+        res.json({ message: 'Photo de profil mise à jour', photo: photoUrl, profile: result });
     } catch (error) {
         console.error('Error uploading photo:', error);
         res.status(500).json({ error: 'Erreur lors de l\'upload de la photo' });
     }
 });
 
-// DELETE /users/:userId - Supprimer un profil
 router.delete('/users/:userId', async (req, res) => {
     try {
         const db = getDB();
         const { userId } = req.params;
 
-        // Récupérer le profil pour supprimer sa photo
         const profile = await db.collection('profiles').findOne({ userId });
         if (profile && profile.photo) {
             const photoPath = profile.photo.replace('/uploads/', 'uploads/');
@@ -365,12 +368,8 @@ router.delete('/users/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profil utilisateur non trouvé' });
         }
 
-        // Supprimer aussi les relations de follow
         await db.collection('follows').deleteMany({
-            $or: [
-                { followerId: userId },
-                { followingId: userId }
-            ]
+            $or: [{ followerId: userId }, { followingId: userId }]
         });
 
         res.json({ message: 'Profil utilisateur supprimé' });
@@ -380,7 +379,6 @@ router.delete('/users/:userId', async (req, res) => {
     }
 });
 
-// GET /users/:userId/stats - Statistiques d'un profil
 router.get('/users/:userId/stats', async (req, res) => {
     try {
         const db = getDB();
@@ -412,12 +410,11 @@ router.get('/users/:userId/stats', async (req, res) => {
 
 // ==================== FOLLOW SYSTEM ====================
 
-// POST /users/:userId/follow - Suivre un utilisateur
 router.post('/users/:userId/follow', async (req, res) => {
     try {
         const db = getDB();
-        const { userId } = req.params; // Utilisateur à suivre (followingId)
-        const { followerId } = req.body; // Utilisateur qui suit
+        const { userId } = req.params;
+        const { followerId } = req.body;
 
         if (!followerId) {
             return res.status(400).json({ error: 'followerId requis' });
@@ -427,7 +424,6 @@ router.post('/users/:userId/follow', async (req, res) => {
             return res.status(400).json({ error: 'Vous ne pouvez pas vous suivre vous-même' });
         }
 
-        // Vérifier que les deux profils existent
         const followerProfile = await db.collection('profiles').findOne({ userId: followerId });
         const followingProfile = await db.collection('profiles').findOne({ userId });
 
@@ -435,7 +431,6 @@ router.post('/users/:userId/follow', async (req, res) => {
             return res.status(404).json({ error: 'Profil non trouvé' });
         }
 
-        // Vérifier si déjà suivi
         const existingFollow = await db.collection('follows').findOne({
             followerId,
             followingId: userId
@@ -445,7 +440,6 @@ router.post('/users/:userId/follow', async (req, res) => {
             return res.status(400).json({ error: 'Vous suivez déjà cet utilisateur' });
         }
 
-        // Créer le follow
         const follow = {
             followerId,
             followerName: `${followerProfile.prenom} ${followerProfile.nom}`.trim() || followerProfile.email,
@@ -458,22 +452,29 @@ router.post('/users/:userId/follow', async (req, res) => {
 
         await db.collection('follows').insertOne(follow);
 
-        res.status(201).json({
-            message: 'Utilisateur suivi',
-            follow
+        // ← NOUVEAU : Envoyer email de notification
+        const followerName = `${followerProfile.prenom} ${followerProfile.nom}`.trim() || followerProfile.email.split('@')[0];
+        const followedName = `${followingProfile.prenom} ${followingProfile.nom}`.trim() || followingProfile.email.split('@')[0];
+
+        sendEmail({
+            type: 'new_follower',
+            email: followingProfile.email,
+            name: followedName,
+            followerName: followerName
         });
+
+        res.status(201).json({ message: 'Utilisateur suivi', follow });
     } catch (error) {
         console.error('Error following user:', error);
         res.status(500).json({ error: 'Erreur lors du suivi' });
     }
 });
 
-// DELETE /users/:userId/follow - Ne plus suivre un utilisateur
 router.delete('/users/:userId/follow', async (req, res) => {
     try {
         const db = getDB();
-        const { userId } = req.params; // Utilisateur à ne plus suivre
-        const { followerId } = req.query; // Utilisateur qui arrête de suivre
+        const { userId } = req.params;
+        const { followerId } = req.query;
 
         if (!followerId) {
             return res.status(400).json({ error: 'followerId requis' });
@@ -495,7 +496,6 @@ router.delete('/users/:userId/follow', async (req, res) => {
     }
 });
 
-// GET /users/:userId/following - Liste des abonnements (utilisateurs suivis)
 router.get('/users/:userId/following', async (req, res) => {
     try {
         const db = getDB();
@@ -513,7 +513,6 @@ router.get('/users/:userId/following', async (req, res) => {
 
         const total = await db.collection('follows').countDocuments({ followerId: userId });
 
-        // Enrichir avec les profils
         const enrichedFollowing = following.map(f => ({
             userId: f.followingId,
             name: f.followingName,
@@ -536,7 +535,6 @@ router.get('/users/:userId/following', async (req, res) => {
     }
 });
 
-// GET /users/:userId/followers - Liste des abonnés (utilisateurs qui suivent)
 router.get('/users/:userId/followers', async (req, res) => {
     try {
         const db = getDB();
@@ -554,7 +552,6 @@ router.get('/users/:userId/followers', async (req, res) => {
 
         const total = await db.collection('follows').countDocuments({ followingId: userId });
 
-        // Enrichir avec les profils
         const enrichedFollowers = followers.map(f => ({
             userId: f.followerId,
             name: f.followerName,
@@ -577,7 +574,6 @@ router.get('/users/:userId/followers', async (req, res) => {
     }
 });
 
-// Route admin pour supprimer TOUS les profils
 router.delete('/users/admin/delete-all', async (req, res) => {
     try {
         const db = getDB();
@@ -585,7 +581,6 @@ router.delete('/users/admin/delete-all', async (req, res) => {
         
         console.log('Profils supprimés:', result.deletedCount);
         
-        // Supprimer aussi tous les follows
         await db.collection('follows').deleteMany({});
         
         res.json({
@@ -598,7 +593,6 @@ router.delete('/users/admin/delete-all', async (req, res) => {
     }
 });
 
-// Fonction helper pour calculer le pourcentage de complétion du profil
 function calculateProfileCompleteness(profile) {
     const fields = ['email', 'prenom', 'nom', 'telephone', 'adressePostale', 'photo'];
     const filledFields = fields.filter(field => profile[field] && profile[field] !== '').length;

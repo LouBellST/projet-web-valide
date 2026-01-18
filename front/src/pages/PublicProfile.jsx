@@ -6,18 +6,20 @@ import '../styles/PublicProfile.css';
 
 function PublicProfile() {
     const { userId } = useParams();
-    const { user, loading: authLoading } = useAuth(); // ← AJOUT de loading
+    const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
     const [following, setFollowing] = useState(false);
+    const [showComments, setShowComments] = useState({});
+    const [comments, setComments] = useState({});
+    const [commentText, setCommentText] = useState({});
+    const [loadingComments, setLoadingComments] = useState({});
 
     useEffect(() => {
-        // ← AJOUT : Attendre que user soit chargé
         if (authLoading || !user) return;
 
-        // Si c'est notre propre profil, rediriger vers /profile
         if (userId === user.id) {
             navigate('/profile');
             return;
@@ -25,7 +27,7 @@ function PublicProfile() {
 
         loadProfile();
         loadUserPosts();
-    }, [userId, user, authLoading]); // ← AJOUT de authLoading
+    }, [userId, user, authLoading]);
 
     const loadProfile = async () => {
         try {
@@ -80,6 +82,30 @@ function PublicProfile() {
         }
     };
 
+    const handleStartConversation = async () => {
+        try {
+            const response = await authFetch('/messages/conversations', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId1: user.id,
+                    userId2: userId,
+                    user1Name: `${user.prenom} ${user.nom}`.trim() || user.email,
+                    user2Name: profile.prenom && profile.nom
+                        ? `${profile.prenom} ${profile.nom}`.trim()
+                        : profile.email
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                navigate(`/chat/${data.conversation._id}`);
+            }
+        } catch (error) {
+            console.error('Error starting conversation:', error);
+            alert('Erreur lors de la création de la conversation');
+        }
+    };
+
     const handleLike = async (postId, isLiked) => {
         try {
             if (isLiked) {
@@ -102,6 +128,52 @@ function PublicProfile() {
         }
     };
 
+    const loadComments = async (postId) => {
+        try {
+            setLoadingComments({ ...loadingComments, [postId]: true });
+            const response = await authFetch(`/posts/posts/${postId}/comments`);
+            if (response.ok) {
+                const data = await response.json();
+                setComments({ ...comments, [postId]: data.comments });
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+        } finally {
+            setLoadingComments({ ...loadingComments, [postId]: false });
+        }
+    };
+
+    const toggleComments = async (postId) => {
+        const isShowing = showComments[postId];
+        setShowComments({ ...showComments, [postId]: !isShowing });
+
+        if (!isShowing && !comments[postId]) {
+            await loadComments(postId);
+        }
+    };
+
+    const handleCommentSubmit = async (postId) => {
+        const text = commentText[postId];
+        if (!text || !text.trim()) return;
+
+        try {
+            await authFetch(`/posts/posts/${postId}/comments`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    authorId: user.id,
+                    authorName: `${user.prenom} ${user.nom}`.trim() || user.email,
+                    content: text
+                })
+            });
+
+            await loadComments(postId);
+            setCommentText({ ...commentText, [postId]: '' });
+            loadUserPosts();
+        } catch (error) {
+            console.error('Error submitting comment:', error);
+        }
+    };
+
     const getPhotoUrl = (photoPath) => {
         if (!photoPath) return null;
         if (photoPath.startsWith('/uploads/')) {
@@ -110,7 +182,6 @@ function PublicProfile() {
         return photoPath;
     };
 
-    // ← AJOUT : Afficher loading pendant l'authentification
     if (authLoading) {
         return (
             <div className="public-profile-container">
@@ -144,6 +215,10 @@ function PublicProfile() {
 
     return (
         <div className="public-profile-container">
+            <button className="btn-back-to-feed" onClick={() => navigate('/')}>
+                ← Retour au feed
+            </button>
+
             <div className="public-profile-card">
                 <div className="profile-header">
                     <div className="photo-section">
@@ -182,12 +257,21 @@ function PublicProfile() {
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleFollowToggle}
-                            className={`btn-follow ${following ? 'following' : ''}`}
-                        >
-                            {following ? 'Ne plus suivre' : 'Suivre'}
-                        </button>
+                        <div className="profile-actions">
+                            <button
+                                onClick={handleFollowToggle}
+                                className={`btn-follow ${following ? 'following' : ''}`}
+                            >
+                                {following ? 'Ne plus suivre' : 'Suivre'}
+                            </button>
+
+                            <button
+                                onClick={handleStartConversation}
+                                className="btn-message"
+                            >
+                                💬 Message
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -247,10 +331,70 @@ function PublicProfile() {
                                             {post.isLiked ? '❤️' : '🤍'} {post.likesCount}
                                         </button>
 
-                                        <button className="btn-action">
+                                        <button
+                                            className="btn-action"
+                                            onClick={() => toggleComments(post._id)}
+                                        >
                                             💬 {post.commentsCount}
                                         </button>
                                     </div>
+
+                                    {showComments[post._id] && (
+                                        <div className="comments-section">
+                                            {loadingComments[post._id] ? (
+                                                <div className="comment-loading">Chargement...</div>
+                                            ) : (
+                                                <>
+                                                    <div className="comments-list">
+                                                        {comments[post._id]?.map(comment => (
+                                                            <div key={comment._id} className="comment-item">
+                                                                <div className="comment-avatar">
+                                                                    {comment.authorName?.[0]?.toUpperCase() || 'U'}
+                                                                </div>
+                                                                <div className="comment-content">
+                                                                    <div className="comment-author">{comment.authorName}</div>
+                                                                    <div className="comment-text">{comment.content}</div>
+                                                                    <div className="comment-date">
+                                                                        {new Date(comment.createdAt).toLocaleDateString('fr-FR', {
+                                                                            day: 'numeric',
+                                                                            month: 'short',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="comment-form">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Écrire un commentaire..."
+                                                            value={commentText[post._id] || ''}
+                                                            onChange={(e) => setCommentText({
+                                                                ...commentText,
+                                                                [post._id]: e.target.value
+                                                            })}
+                                                            className="comment-input"
+                                                            onKeyPress={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    handleCommentSubmit(post._id);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={() => handleCommentSubmit(post._id)}
+                                                            className="btn-comment-submit"
+                                                            disabled={!commentText[post._id]?.trim()}
+                                                        >
+                                                            Envoyer
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

@@ -25,10 +25,16 @@ function Profile() {
     const [activeTab, setActiveTab] = useState('profile');
     const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
     const [loadingBookmarks, setLoadingBookmarks] = useState(false);
+    const [bookmarksCount, setBookmarksCount] = useState(0);
+    const [showComments, setShowComments] = useState({}); // ← NOUVEAU
+    const [comments, setComments] = useState({}); // ← NOUVEAU
+    const [commentText, setCommentText] = useState({}); // ← NOUVEAU
+    const [loadingComments, setLoadingComments] = useState({}); // ← NOUVEAU
 
     useEffect(() => {
         if (user?.id) {
             loadProfile();
+            loadBookmarksCount();
         }
     }, [user]);
 
@@ -60,6 +66,18 @@ function Profile() {
         }
     };
 
+    const loadBookmarksCount = async () => {
+        try {
+            const response = await authFetch(`/posts/bookmarks?userId=${user.id}&limit=1`);
+            if (response.ok) {
+                const data = await response.json();
+                setBookmarksCount(data.pagination?.total || 0);
+            }
+        } catch (error) {
+            console.error('Error loading bookmarks count:', error);
+        }
+    };
+
     const loadFollowersOrFollowing = async (type) => {
         try {
             setModalLoading(true);
@@ -75,7 +93,20 @@ function Profile() {
 
             const data = await response.json();
             const users = type === 'followers' ? data.followers : data.following;
-            setModalUsers(users);
+
+            const enrichedUsers = await Promise.all(users.map(async (u) => {
+                const profileResponse = await authFetch(`/users/users/${u.userId}?currentUserId=${user.id}`);
+                if (profileResponse.ok) {
+                    const profileData = await profileResponse.json();
+                    return {
+                        ...u,
+                        isFollowing: profileData.isFollowing
+                    };
+                }
+                return { ...u, isFollowing: false };
+            }));
+
+            setModalUsers(enrichedUsers);
             setShowModal(type);
         } catch (error) {
             console.error('Error loading users:', error);
@@ -102,6 +133,14 @@ function Profile() {
         } catch (error) {
             console.error('Error toggling follow:', error);
         }
+    };
+
+    const handleUserClick = (userId) => {
+        setShowModal(null);
+        if (userId === user.id) {
+            return;
+        }
+        navigate(`/user/${userId}`);
     };
 
     const handleChange = (e) => {
@@ -201,11 +240,61 @@ function Profile() {
             if (response.ok) {
                 const data = await response.json();
                 setBookmarkedPosts(data.posts);
+                setBookmarksCount(data.posts.length);
             }
         } catch (error) {
             console.error('Error loading bookmarks:', error);
         } finally {
             setLoadingBookmarks(false);
+        }
+    };
+
+    // ← NOUVEAU : Charger les commentaires
+    const loadComments = async (postId) => {
+        try {
+            setLoadingComments({ ...loadingComments, [postId]: true });
+            const response = await authFetch(`/posts/posts/${postId}/comments`);
+            if (response.ok) {
+                const data = await response.json();
+                setComments({ ...comments, [postId]: data.comments });
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+        } finally {
+            setLoadingComments({ ...loadingComments, [postId]: false });
+        }
+    };
+
+    // ← NOUVEAU : Toggle commentaires
+    const toggleComments = async (postId) => {
+        const isShowing = showComments[postId];
+        setShowComments({ ...showComments, [postId]: !isShowing });
+
+        if (!isShowing && !comments[postId]) {
+            await loadComments(postId);
+        }
+    };
+
+    // ← NOUVEAU : Soumettre un commentaire
+    const handleCommentSubmit = async (postId) => {
+        const text = commentText[postId];
+        if (!text || !text.trim()) return;
+
+        try {
+            await authFetch(`/posts/posts/${postId}/comments`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    authorId: user.id,
+                    authorName: `${user.prenom} ${user.nom}`.trim() || user.email,
+                    content: text
+                })
+            });
+
+            await loadComments(postId);
+            setCommentText({ ...commentText, [postId]: '' });
+            loadBookmarks();
+        } catch (error) {
+            console.error('Error submitting comment:', error);
         }
     };
 
@@ -238,6 +327,7 @@ function Profile() {
             });
 
             loadBookmarks();
+            loadBookmarksCount();
         } catch (error) {
             console.error('Error removing bookmark:', error);
         }
@@ -274,6 +364,9 @@ function Profile() {
     if (!profile) {
         return (
             <div className="profile-container">
+                <button className="btn-back-to-feed" onClick={() => navigate('/')}>
+                    ← Retour au feed
+                </button>
                 <div className="profile-card">
                     {message.text && (
                         <div className={`message message-${message.type}`}>
@@ -305,7 +398,6 @@ function Profile() {
                     </div>
                 )}
 
-                {/* Photo de profil */}
                 <div className="profile-photo-section">
                     <div className="photo-wrapper">
                         {photoPreview ? (
@@ -348,7 +440,6 @@ function Profile() {
                     </div>
                 </div>
 
-                {/* Stats Followers/Following */}
                 <div className="profile-stats">
                     <button
                         className="stat-button"
@@ -366,7 +457,6 @@ function Profile() {
                     </button>
                 </div>
 
-                {/* Tabs */}
                 <div className="profile-tabs">
                     <button
                         className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
@@ -383,14 +473,12 @@ function Profile() {
                             }
                         }}
                     >
-                        Enregistrés ({bookmarkedPosts.length})
+                        Enregistrés ({bookmarksCount})
                     </button>
                 </div>
 
-                {/* Tab Profil */}
                 {activeTab === 'profile' && (
                     <>
-                        {/* Barre de progression du profil */}
                         <div className="profile-completeness">
                             <div className="completeness-header">
                                 <span>Profil complété à {completeness}%</span>
@@ -403,7 +491,6 @@ function Profile() {
                             </div>
                         </div>
 
-                        {/* Informations du profil */}
                         {!editing ? (
                             <div className="profile-info">
                                 <div className="info-row">
@@ -505,7 +592,6 @@ function Profile() {
                             </form>
                         )}
 
-                        {/* Informations du compte */}
                         <div className="account-info">
                             <h3>Informations du compte</h3>
                             <div className="info-row">
@@ -520,7 +606,6 @@ function Profile() {
                     </>
                 )}
 
-                {/* Tab Bookmarks */}
                 {activeTab === 'bookmarks' && (
                     <div className="bookmarks-section">
                         {loadingBookmarks ? (
@@ -586,7 +671,11 @@ function Profile() {
                                                 {post.isLiked ? '❤️' : '🤍'} {post.likesCount}
                                             </button>
 
-                                            <button className="btn-action">
+                                            {/* ← MODIFIÉ : Bouton commentaires cliquable */}
+                                            <button
+                                                className="btn-action"
+                                                onClick={() => toggleComments(post._id)}
+                                            >
                                                 💬 {post.commentsCount}
                                             </button>
 
@@ -597,6 +686,64 @@ function Profile() {
                                                 🔖 Retirer
                                             </button>
                                         </div>
+
+                                        {/* ← NOUVEAU : Section commentaires */}
+                                        {showComments[post._id] && (
+                                            <div className="comments-section">
+                                                {loadingComments[post._id] ? (
+                                                    <div className="comment-loading">Chargement...</div>
+                                                ) : (
+                                                    <>
+                                                        <div className="comments-list">
+                                                            {comments[post._id]?.map(comment => (
+                                                                <div key={comment._id} className="comment-item">
+                                                                    <div className="comment-avatar">
+                                                                        {comment.authorName?.[0]?.toUpperCase() || 'U'}
+                                                                    </div>
+                                                                    <div className="comment-content">
+                                                                        <div className="comment-author">{comment.authorName}</div>
+                                                                        <div className="comment-text">{comment.content}</div>
+                                                                        <div className="comment-date">
+                                                                            {new Date(comment.createdAt).toLocaleDateString('fr-FR', {
+                                                                                day: 'numeric',
+                                                                                month: 'short',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit'
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        <div className="comment-form">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Écrire un commentaire..."
+                                                                value={commentText[post._id] || ''}
+                                                                onChange={(e) => setCommentText({
+                                                                    ...commentText,
+                                                                    [post._id]: e.target.value
+                                                                })}
+                                                                className="comment-input"
+                                                                onKeyPress={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        handleCommentSubmit(post._id);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={() => handleCommentSubmit(post._id)}
+                                                                className="btn-comment-submit"
+                                                                disabled={!commentText[post._id]?.trim()}
+                                                            >
+                                                                Envoyer
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -605,7 +752,6 @@ function Profile() {
                 )}
             </div>
 
-            {/* Modal Followers/Following */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(null)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -630,7 +776,11 @@ function Profile() {
                                 <div className="users-list">
                                     {modalUsers.map(u => (
                                         <div key={u.userId} className="user-item">
-                                            <div className="user-avatar">
+                                            <div
+                                                className="user-avatar"
+                                                onClick={() => handleUserClick(u.userId)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
                                                 {u.photo ? (
                                                     <img src={`/users${u.photo}`} alt={u.name} />
                                                 ) : (
@@ -639,7 +789,11 @@ function Profile() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="user-info">
+                                            <div
+                                                className="user-info"
+                                                onClick={() => handleUserClick(u.userId)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
                                                 <span className="user-name">{u.name}</span>
                                                 <span className="user-date">
                                                     Depuis {new Date(u.followedAt).toLocaleDateString('fr-FR')}

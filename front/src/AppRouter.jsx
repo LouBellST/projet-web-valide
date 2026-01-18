@@ -2,11 +2,16 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/useAuth';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Feed from './pages/Feed';
 import TagFeed from './pages/TagFeed';
 import Profile from './pages/Profile';
+import Messages from './pages/Messages';
+import Conversation from './pages/Conversation';
 import Navbar from './components/Navbar';
 import PublicProfile from './pages/PublicProfile';
+import MessagesFloatingButton from './components/MessagesFloatingButton';
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
@@ -30,12 +35,7 @@ function ProtectedRoute({ children }) {
         return <Navigate to="/login" replace />;
     }
 
-    return (
-        <>
-            <Navbar />
-            {children}
-        </>
-    );
+    return children;
 }
 
 function PublicRoute({ children }) {
@@ -63,9 +63,25 @@ function PublicRoute({ children }) {
     return children;
 }
 
+function ConditionalNavbar() {
+    const { user } = useAuth();
+
+    if (!user) {
+        return null;
+    }
+
+    return <Navbar />;
+}
+
 function AppRouter() {
+    const { user } = useAuth();
+
     return (
         <BrowserRouter>
+            <ConditionalNavbar />
+
+            {user && <MessagesFloatingButton />}
+
             <Routes>
                 {/* Routes publiques */}
                 <Route
@@ -81,6 +97,24 @@ function AppRouter() {
                     element={
                         <PublicRoute>
                             <Register />
+                        </PublicRoute>
+                    }
+                />
+
+                {/* ← NOUVEAU : Routes reset password (publiques) */}
+                <Route
+                    path="/forgot-password"
+                    element={
+                        <PublicRoute>
+                            <ForgotPassword />
+                        </PublicRoute>
+                    }
+                />
+                <Route
+                    path="/reset-password"
+                    element={
+                        <PublicRoute>
+                            <ResetPassword />
                         </PublicRoute>
                     }
                 />
@@ -103,6 +137,14 @@ function AppRouter() {
                     }
                 />
                 <Route
+                    path="/user/:userId"
+                    element={
+                        <ProtectedRoute>
+                            <PublicProfile />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
                     path="/tags/:tag"
                     element={
                         <ProtectedRoute>
@@ -110,12 +152,19 @@ function AppRouter() {
                         </ProtectedRoute>
                     }
                 />
-
                 <Route
-                    path="/user/:userId"
+                    path="/chat"
                     element={
                         <ProtectedRoute>
-                            <PublicProfile />
+                            <Messages />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/chat/:conversationId"
+                    element={
+                        <ProtectedRoute>
+                            <Conversation />
                         </ProtectedRoute>
                     }
                 />

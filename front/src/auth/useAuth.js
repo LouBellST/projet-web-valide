@@ -48,14 +48,33 @@ export function useAuth() {
     };
   }, []);
 
-  const login = (token, user) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setToken(token);
-    setUser(user);
+  // ← NOUVELLE FONCTION : Login avec appel API
+  const login = async (email, password) => {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Si erreur, throw pour que le composant Login puisse catcher
+      throw new Error(data.error || 'Erreur de connexion');
+    }
+
+    // Si succès, sauvegarder le token et l'user
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
     
     // Déclencher l'événement custom pour notifier les autres composants
     window.dispatchEvent(new Event('auth-change'));
+
+    return data;
   };
 
   const logout = () => {

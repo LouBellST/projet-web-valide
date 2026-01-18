@@ -43,6 +43,7 @@ services:
     depends_on:
       - mongodb
       - users
+      - rabbitmq
 
   users:
     container_name: td8-users
@@ -59,6 +60,7 @@ services:
       - users_uploads:/app/uploads
     depends_on:
       - mongodb
+      - rabbitmq
 
   posts:
     container_name: td8-posts
@@ -66,7 +68,7 @@ services:
       context: posts
       dockerfile: Dockerfile.dev
     ports:
-      - "3004:80"
+      - "3002:80"
     environment:
       - MONGO_URI=mongodb://mongodb:27017/
       - MONGO_DB=postsdb
@@ -82,7 +84,7 @@ services:
       context: groups
       dockerfile: Dockerfile.dev
     ports:
-      - "3002:80"
+      - "3003:80"
     environment:
       - MONGO_URI=mongodb://mongodb:27017/
       - MONGO_DB=groupsdb
@@ -119,7 +121,7 @@ services:
       context: notifier
       dockerfile: Dockerfile.dev
     ports:
-      - "3003:80"
+      - "3004:80"
     environment:
       - RABBIT_URL=amqp://rabbitmq
       - RABBIT_EXCHANGE=groups.events
@@ -142,6 +144,47 @@ services:
       - ./reverse-proxy/log:/var/log/nginx
     ports:
       - "8080:80"
+
+  messages:
+    container_name: td8-messages
+    build:
+      context: messages
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3005:80"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB=messagesdb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=80
+    volumes:
+      - ./messages/src:/app/src
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+
+  # Dans docker-compose.yml, ajouter dans la section "Micro Services"
+
+  email:
+    container_name: td8-email
+    build:
+      context: email
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3006:80"
+    environment:
+      - PORT=80
+      - RABBIT_URL=amqp://rabbitmq
+      - BREVO_API_KEY=REMOVED_SECRET # ← Ta clé API Brevo
+      - FROM_EMAIL=projetweb.noreply@gmail.com
+      - FROM_NAME=Projet Web
+      - APP_URL=http://localhost:8080
+    volumes:
+      - ./email/src:/app/src
+    depends_on:
+      - rabbitmq
 
 volumes:
   mongodb_data:
