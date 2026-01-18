@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 80;
 
 // Configuration
 const RABBIT_URL = process.env.RABBIT_URL || 'amqp://rabbitmq';
-const BREVO_API_KEY = process.env.BREVO_API_KEY || 'REMOVED_SECRET';
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FROM_EMAIL = process.env.FROM_EMAIL || 'projetweb.noreply@gmail.com';
 const FROM_NAME = process.env.FROM_NAME || 'Projet Web';
 

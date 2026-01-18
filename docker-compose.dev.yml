@@ -177,7 +177,7 @@ services:
     environment:
       - PORT=80
       - RABBIT_URL=amqp://rabbitmq
-      - BREVO_API_KEY=REMOVED_SECRET # ← Ta clé API Brevo
+      - BREVO_API_KEY=${SENDINBLUE_API_KEY}
       - FROM_EMAIL=projetweb.noreply@gmail.com
       - FROM_NAME=Projet Web
       - APP_URL=http://localhost:8080
