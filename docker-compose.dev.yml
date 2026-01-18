@@ -2,7 +2,7 @@ services:
   # Infrastructure Services
   rabbitmq:
     image: rabbitmq:3.13-management
-    container_name: td8-rabbitmq
+    container_name: projet-web-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -11,7 +11,7 @@ services:
 
   redis:
     image: redis:latest
-    container_name: td8-redis
+    container_name: projet-web-redis
     ports:
       - "6379:6379"
     volumes:
@@ -21,13 +21,13 @@ services:
 
   mongodb:
     image: mongo:8.0
-    container_name: td8-mongo
+    container_name: projet-web-mongo
     volumes:
       - mongodb_data:/data/db
 
   # Micro Services
   auth:
-    container_name: td8-auth
+    container_name: projet-web-auth
     build:
       context: auth
       dockerfile: Dockerfile.dev
@@ -46,7 +46,7 @@ services:
       - rabbitmq
 
   users:
-    container_name: td8-users
+    container_name: projet-web-users
     build:
       context: users
       dockerfile: Dockerfile.dev
@@ -63,7 +63,7 @@ services:
       - rabbitmq
 
   posts:
-    container_name: td8-posts
+    container_name: projet-web-posts
     build:
       context: posts
       dockerfile: Dockerfile.dev
@@ -79,7 +79,7 @@ services:
       - mongodb
 
   groups:
-    container_name: td8-groups
+    container_name: projet-web-groups
     build:
       context: groups
       dockerfile: Dockerfile.dev
@@ -100,7 +100,7 @@ services:
       - rabbitmq
 
   front:
-    container_name: td8-front
+    container_name: projet-web-front
     build:
       context: front
       dockerfile: Dockerfile.dev
@@ -116,7 +116,7 @@ services:
       - groups
 
   notifier:
-    container_name: td8-notifier
+    container_name: projet-web-notifier
     build:
       context: notifier
       dockerfile: Dockerfile.dev
@@ -131,7 +131,7 @@ services:
       - rabbitmq
 
   reverseproxy:
-    container_name: td8-reverse
+    container_name: projet-web-reverse
     build:
       context: reverse-proxy
       dockerfile: Dockerfile.dev
@@ -146,7 +146,7 @@ services:
       - "8080:80"
 
   messages:
-    container_name: td8-messages
+    container_name: projet-web-messages
     build:
       context: messages
       dockerfile: Dockerfile.dev
@@ -168,7 +168,7 @@ services:
   # Dans docker-compose.yml, ajouter dans la section "Micro Services"
 
   email:
-    container_name: td8-email
+    container_name: projet-web-email
     build:
       context: email
       dockerfile: Dockerfile.dev

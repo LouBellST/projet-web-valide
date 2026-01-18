@@ -28,7 +28,7 @@ function Navbar() {
             <div className="navbar-container">
                 <div className="navbar-logo">
                     <button onClick={() => navigate('/')} className="logo-button">
-                        App Du Cul
+                        Lemauvaiscoin
                     </button>
                 </div>
 
