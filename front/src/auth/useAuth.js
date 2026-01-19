@@ -1,6 +1,26 @@
 import { useState, useEffect } from 'react';
 
 /**
+ * Fonction pour décoder et vérifier le JWT
+ */
+function decodeToken(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Erreur décodage token:', error);
+    return null;
+  }
+}
+
+/**
  * Hook personnalisé pour gérer l'authentification
  */
 export function useAuth() {
@@ -8,14 +28,30 @@ export function useAuth() {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const isTokenExpired = (token) => {
+    if (!token) return true;
+    const decoded = decodeToken(token);
+    if (!decoded || !decoded.exp) return true;
+    const expirationTime = decoded.exp * 1000; // exp est en secondes
+    return Date.now() >= expirationTime;
+  };
+
   // Fonction pour charger l'état depuis localStorage
   const loadAuthState = () => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      if (isTokenExpired(storedToken)) {
+        console.log('Token expiré, déconnexion');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+      } else {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      }
     } else {
       setToken(null);
       setUser(null);
@@ -44,6 +80,21 @@ export function useAuth() {
       window.removeEventListener('auth-change', handleAuthChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const checkTokenExpiry = () => {
+      if (isTokenExpired(token)) {
+        console.log('Token expiré lors de la vérification régulière');
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkTokenExpiry, 60000);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   const login = async (email, password) => {
     const response = await fetch('/auth/login', {
@@ -81,17 +132,13 @@ export function useAuth() {
     window.dispatchEvent(new Event('auth-change'));
   };
 
-  const isAuthenticated = () => {
-    return !!token && !!user;
-  };
-
   return {
     user,
     token,
     loading,
     login,
     logout,
-    isAuthenticated: isAuthenticated()
+    isAuthenticated: !!user && !!token && !isTokenExpired(token)
   };
 }
 

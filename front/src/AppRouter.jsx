@@ -15,7 +15,7 @@ import MessagesFloatingButton from './components/MessagesFloatingButton';
 
 
 function ProtectedRoute({ children }) {
-    const { user, loading } = useAuth();
+    const { user, loading, isAuthenticated } = useAuth();
 
     if (loading) {
         return (
@@ -32,7 +32,7 @@ function ProtectedRoute({ children }) {
         );
     }
 
-    if (!user) {
+    if (!user || !isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 
@@ -40,7 +40,7 @@ function ProtectedRoute({ children }) {
 }
 
 function PublicRoute({ children }) {
-    const { user, loading } = useAuth();
+    const { user, loading, isAuthenticated } = useAuth();
 
     if (loading) {
         return (
@@ -57,7 +57,7 @@ function PublicRoute({ children }) {
         );
     }
 
-    if (user) {
+    if (user && isAuthenticated) {
         return <Navigate to="/" replace />;
     }
 
@@ -75,13 +75,13 @@ function ConditionalNavbar() {
 }
 
 function AppRouter() {
-    const { user } = useAuth();
+    const { user, isAuthenticated } = useAuth();
 
     return (
         <BrowserRouter>
             <ConditionalNavbar />
 
-            {user && <MessagesFloatingButton />}
+            {user && isAuthenticated && <MessagesFloatingButton />}
 
             <Routes>
                 {/* Routes publiques */}
