@@ -411,7 +411,7 @@ function Feed() {
                                     onClick={() => handleInterested(post._id, post.isInterested)}
                                     className="btn-action"
                                 >
-                                    {post.isInterested ? '👍 Interessé' : '📌 Interessé'}
+                                    {post.isInterested ? '📌 Interessé' : 'Pas Interessé'}
                                 </button>
                             </div>
                             {showComments[post._id] && (

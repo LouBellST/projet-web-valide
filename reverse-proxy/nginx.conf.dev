@@ -15,7 +15,18 @@ http {
         error_log  /var/log/nginx/error.log;
         access_log /var/log/nginx/access.log;
 
-         location / {
+        # Documentation API Swagger
+        location /api-docs {
+            proxy_pass http://swagger-ui:8080/api-docs;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Frontend React
+        location / {
             proxy_pass http://front:80/;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
@@ -28,7 +39,8 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ^~ /auth/ {
+        # Auth service
+        location /auth/ {
             proxy_pass http://auth:80/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -37,7 +49,8 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ^~ /users/ {
+        # Users service
+        location /users/ {
             proxy_pass http://users:80/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -46,7 +59,8 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ^~ /posts/ {
+        # Posts service
+        location /posts/ {
             proxy_pass http://posts:80/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
@@ -55,16 +69,8 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        # location ^~ /api/ {
-        #     proxy_pass http://groups:80/;
-        #     proxy_http_version 1.1;
-        #     proxy_set_header Host $host;
-        #     proxy_set_header X-Real-IP $remote_addr;
-        #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        #     proxy_set_header X-Forwarded-Proto $scheme;
-        # }
-
-        location ^~ /messages/ {
+        # Messages service (WebSocket support)
+        location /messages/ {
             proxy_pass http://messages:80/;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;

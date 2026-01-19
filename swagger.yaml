@@ -1,0 +1,1794 @@
+openapi: 3.0.0
+info:
+  title: Projet Web API
+  description: |
+    API complète du projet Web avec les services d'authentification, utilisateurs, posts, messages et emails.
+    Architecture microservices avec les services suivants :
+    - **Auth Service** : Gestion de l'authentification et des tokens JWT
+    - **Users Service** : Gestion des profils utilisateurs et des relations (follow/unfollow)
+    - **Posts Service** : Gestion des posts, commentaires, likes et bookmarks
+    - **Messages Service** : Service WebSocket pour les messages en temps réel
+    - **Email Service** : Gestion de l'envoi d'emails via RabbitMQ et Brevo
+  version: 1.0.0
+  contact:
+    name: Support API
+    email: support@projetweb.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Développement (Docker Compose)
+  - url: https://api.projetweb.com
+    description: Production
+
+tags:
+  - name: Auth
+    description: Endpoints d'authentification (register, login, reset password)
+  - name: Users
+    description: Gestion des profils utilisateurs et des relations
+  - name: Posts
+    description: Gestion des posts, commentaires, likes et bookmarks
+  - name: Messages
+    description: Gestion des conversations et messages en temps réel (WebSocket)
+  - name: Email
+    description: Service d'envoi d'emails (asynchrone via RabbitMQ)
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtenu via /auth/login ou /auth/register
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID MongoDB de l'utilisateur
+        email:
+          type: string
+          format: email
+        prenom:
+          type: string
+        nom:
+          type: string
+        bio:
+          type: string
+        photo:
+          type: string
+          description: URL ou chemin vers la photo de profil
+        isPrivate:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        followersCount:
+          type: integer
+        followingCount:
+          type: integer
+        isFollowing:
+          type: boolean
+          description: Si l'utilisateur courant suit ce profil
+
+    Post:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: ID MongoDB du post
+        authorId:
+          type: string
+        authorName:
+          type: string
+        content:
+          type: string
+        image:
+          type: string
+          description: URL de l'image du post
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags extraits du contenu (ex #javascript)
+        likes:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              userName:
+                type: string
+              likedAt:
+                type: string
+                format: date-time
+        likesCount:
+          type: integer
+        commentsCount:
+          type: integer
+        isLiked:
+          type: boolean
+          description: Si l'utilisateur courant a liké ce post
+        isBookmarked:
+          type: boolean
+          description: Si l'utilisateur courant a sauvegardé ce post
+        isInterested:
+          type: boolean
+          description: Si l'utilisateur courant est intéressé par ce post
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Comment:
+      type: object
+      properties:
+        _id:
+          type: string
+        postId:
+          type: string
+        authorId:
+          type: string
+        authorName:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Conversation:
+      type: object
+      properties:
+        _id:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+          description: IDs des deux utilisateurs
+        participantsInfo:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+        lastMessage:
+          type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+        unreadCount:
+          type: integer
+          description: Nombre de messages non lus
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+        conversationId:
+          type: string
+        senderId:
+          type: string
+        senderName:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT Token (valide 24h)
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            prenom:
+              type: string
+            nom:
+              type: string
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Requête invalide (paramètres manquants ou format incorrect)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Non authentifié ou credentials invalides
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Accès refusé
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflit (ex email déjà utilisé)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Erreur serveur
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: Trop de requêtes (rate limiting)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+paths:
+  /auth:
+    get:
+      tags:
+        - Auth
+      summary: Info du service Auth
+      responses:
+        '200':
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Créer un nouveau compte utilisateur
+      description: |
+        Enregistre un nouvel utilisateur avec email et mot de passe.
+        Génère automatiquement un JWT token valide 24h.
+        Crée aussi un profil utilisateur dans le service Users.
+        Envoie un email de bienvenue via RabbitMQ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  example: SecurePassword123
+                prenom:
+                  type: string
+                  example: Jean
+                nom:
+                  type: string
+                  example: Dupont
+      responses:
+        '201':
+          description: Utilisateur créé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  user:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email déjà utilisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authentifier un utilisateur
+      description: |
+        Valide les credentials (email + password) et retourne un JWT token.
+        Le token est valide pendant 24h.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  example: SecurePassword123
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  user:
+                    type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Email ou mot de passe incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/verify-token:
+    post:
+      tags:
+        - Auth
+      summary: Vérifier la validité d'un JWT token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token valide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  user:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Demander un reset du mot de passe
+      description: |
+        Envoie un email de récupération avec un lien de reset.
+        Le lien contient un token temporaire valide 1h.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Email de récupération envoyé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Email non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Réinitialiser le mot de passe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                  description: Token envoyé par email
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        '200':
+          description: Mot de passe réinitialisé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Token invalide ou expiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Récupérer tous les utilisateurs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+          description: Nombre maximum d'utilisateurs à retourner
+      responses:
+        '200':
+          description: Liste des utilisateurs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Users
+      summary: Créer un nouveau profil utilisateur
+      description: Endpoint interne appelé par le service Auth après registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - email
+              properties:
+                userId:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                prenom:
+                  type: string
+                nom:
+                  type: string
+      responses:
+        '201':
+          description: Profil créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  profile:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Profil déjà existant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/search:
+    get:
+      tags:
+        - Users
+      summary: Rechercher des utilisateurs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Requête de recherche (sur email, prenom, nom)
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Récupérer le profil d'un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de l'utilisateur
+        - name: currentUserId
+          in: query
+          schema:
+            type: string
+          description: ID de l'utilisateur courant pour vérifier le follow status
+      responses:
+        '200':
+          description: Profil utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Users
+      summary: Mettre à jour le profil
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prenom:
+                  type: string
+                nom:
+                  type: string
+                bio:
+                  type: string
+                isPrivate:
+                  type: boolean
+      responses:
+        '200':
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  profile:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/photo:
+    post:
+      tags:
+        - Users
+      summary: Upload photo de profil
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Image JPEG, PNG, GIF ou WebP (max 5MB)
+      responses:
+        '200':
+          description: Photo uploadée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  photoUrl:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/follow:
+    post:
+      tags:
+        - Users
+      summary: Suivre un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de l'utilisateur à suivre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - followerId
+              properties:
+                followerId:
+                  type: string
+      responses:
+        '201':
+          description: Utilisateur suivi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/unfollow:
+    delete:
+      tags:
+        - Users
+      summary: Arrêter de suivre un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de l'utilisateur à ne plus suivre
+        - name: followerId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID de l'utilisateur courant
+      responses:
+        '200':
+          description: Utilisateur ne plus suivi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/followers:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les followers d'un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Liste des followers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  followers:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/following:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs suivis
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Liste des utilisateurs suivis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  following:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts:
+    get:
+      tags:
+        - Posts
+      summary: Info du service Posts
+      responses:
+        '200':
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  database:
+                    type: string
+                  collections:
+                    type: object
+
+    post:
+      tags:
+        - Posts
+      summary: Créer un nouveau post
+      security:
+        - BearerAuth: []
+      description: |
+        Crée un post avec contenu et optionnellement une image.
+        Les tags sont extraits automatiquement du contenu (format #tag).
+        Rate limited 10 posts par minute maximum.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - authorId
+                - content
+              properties:
+                authorId:
+                  type: string
+                authorName:
+                  type: string
+                content:
+                  type: string
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Post créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  post:
+                    $ref: '#/components/schemas/Post'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/feed:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer le feed de posts
+      security:
+        - BearerAuth: []
+      description: |
+        Retourne les posts paginés.
+        Peut filtrer pour ne montrer que les posts des utilisateurs suivis.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: followingOnly
+          in: query
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+      responses:
+        '200':
+          description: Feed de posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/tags/{tag}:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer les posts par tag
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tag
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Posts avec ce tag
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tag:
+                    type: string
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer les détails d'un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails du post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          description: ID de post invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Posts
+      summary: Modifier un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Post mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  post:
+                    $ref: '#/components/schemas/Post'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Posts
+      summary: Supprimer un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post supprimé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/like:
+    post:
+      tags:
+        - Posts
+      summary: Liker un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                userName:
+                  type: string
+      responses:
+        '200':
+          description: Post liké
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/unlike:
+    delete:
+      tags:
+        - Posts
+      summary: Retirer un like sur un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Like retiré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/bookmark:
+    post:
+      tags:
+        - Posts
+      summary: Ajouter un post aux bookmarks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '201':
+          description: Post ajouté aux bookmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/unbookmark:
+    delete:
+      tags:
+        - Posts
+      summary: Retirer un post des bookmarks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post retiré des bookmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/bookmarks:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer les bookmarks d'un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Bookmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookmarks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/interested:
+    post:
+      tags:
+        - Posts
+      summary: Marquer comme intéressé par un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                userName:
+                  type: string
+      responses:
+        '201':
+          description: Intérêt enregistré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/uninterested:
+    delete:
+      tags:
+        - Posts
+      summary: Retirer l'intérêt pour un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Intérêt retiré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/interested-users:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer les utilisateurs intéressés par un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Liste des utilisateurs intéressés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interested:
+                    type: array
+                    items:
+                      type: object
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /posts/{postId}/comments:
+    get:
+      tags:
+        - Posts
+      summary: Récupérer les commentaires d'un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commentaires
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Posts
+      summary: Ajouter un commentaire à un post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - authorId
+                - content
+              properties:
+                authorId:
+                  type: string
+                authorName:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Commentaire ajouté
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /conversations:
+    post:
+      tags:
+        - Messages
+      summary: Créer ou obtenir une conversation
+      security:
+        - BearerAuth: []
+      description: |
+        Si une conversation existe déjà entre les deux utilisateurs, la retourne.
+        Sinon, en crée une nouvelle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId1
+                - userId2
+              properties:
+                userId1:
+                  type: string
+                userId2:
+                  type: string
+                user1Name:
+                  type: string
+                user2Name:
+                  type: string
+      responses:
+        '200':
+          description: Conversation trouvée ou créée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /conversations/{userId}:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer toutes les conversations d'un utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Liste des conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messages:
+    post:
+      tags:
+        - Messages
+      summary: Envoyer un message dans une conversation
+      security:
+        - BearerAuth: []
+      description: |
+        Envoie un message et met à jour la conversation.
+        Publie le message via Redis pub/sub pour les utilisateurs connectés en WebSocket.
+        Envoie un email au destinataire s'il est inactif depuis > 1h.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+                - senderId
+                - content
+              properties:
+                conversationId:
+                  type: string
+                senderId:
+                  type: string
+                senderName:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Message envoyé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messages/{conversationId}:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer l'historique des messages d'une conversation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Historique des messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messages/{conversationId}/mark-read:
+    patch:
+      tags:
+        - Messages
+      summary: Marquer les messages comme lus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Messages marqués comme lus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /ws:
+    get:
+      tags:
+        - Messages
+      summary: WebSocket pour les messages en temps réel
+      description: |
+        Connexion WebSocket pour recevoir les messages en temps réel.
+        URL ws://localhost/messages/ws?userId=<userId>
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Upgrade WebSocket réussi
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /email/send:
+    post:
+      tags:
+        - Email
+      summary: Envoyer un email (asynchrone)
+      description: |
+        Enqueue un email pour envoi asynchrone via RabbitMQ.
+        Types d'emails supportés welcome, forgot_password, reset_password, 
+        new_message, post_interested, new_comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - email
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - welcome
+                    - forgot_password
+                    - reset_password
+                    - new_message
+                    - post_interested
+                    - new_comment
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                senderName:
+                  type: string
+                postContent:
+                  type: string
+                commentAuthor:
+                  type: string
+      responses:
+        '202':
+          description: Email accepté pour traitement asynchrone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  queued:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /email/status:
+    get:
+      tags:
+        - Email
+      summary: Obtenir le statut du service d'emails
+      responses:
+        '200':
+          description: Statut du service
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [connected, disconnected]
+                  brevoConfigured:
+                    type: boolean
+                  mode:
+                    type: string
+                    enum: [production, development]

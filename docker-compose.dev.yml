@@ -149,6 +149,17 @@ services:
     depends_on:
       - rabbitmq
 
+  swagger-ui:
+    container_name: projet-web-swagger
+    image: swaggerapi/swagger-ui:latest
+    ports:
+      - "8081:8080"
+    environment:
+      - SWAGGER_JSON=/swagger/swagger.yaml
+      - BASE_URL=/api-docs
+    volumes:
+      - ./swagger.yaml:/swagger/swagger.yaml:ro
+
 volumes:
   mongodb_data:
   redis_data:

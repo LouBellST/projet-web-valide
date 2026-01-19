@@ -78,6 +78,25 @@ function TagFeed() {
         }
     };
 
+    const handleInterested = async (postId, isInterested) => {
+        try {
+            if (isInterested) {
+                await authFetch(`/posts/posts/${postId}/interested/${user.id}`, {
+                    method: 'DELETE'
+                });
+            } else {
+                await authFetch(`/posts/posts/${postId}/interested`, {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: user.id, postId })
+                });
+            }
+
+            loadTagPosts();
+        } catch (error) {
+            console.error('Error toggling interested:', error);
+        }
+    };
+
     const handleTagClick = (clickedTag) => {
         navigate(`/tags/${clickedTag}`);
     };
@@ -185,6 +204,13 @@ function TagFeed() {
                                     className={`btn-action ${post.isBookmarked ? 'bookmarked' : ''}`}
                                 >
                                     {post.isBookmarked ? '🔖' : '📑'}
+                                </button>
+
+                                <button
+                                    onClick={() => handleInterested(post._id, post.isInterested)}
+                                    className="btn-action"
+                                >
+                                    {post.isInterested ? '📌 Interessé' : 'Pas Interessé'}
                                 </button>
                             </div>
                         </div>
