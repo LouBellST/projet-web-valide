@@ -80,7 +80,7 @@
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: #1a1f2e;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     display: flex;
     align-items: center;
