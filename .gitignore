@@ -67,7 +67,6 @@ lerna-debug.log*
 
 # Secrets (ajouter d'autres patterns si nécessaire)
 *secret*
-*password*
 *.pem
 *.key
 *.cert
