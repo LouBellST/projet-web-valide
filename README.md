@@ -62,7 +62,7 @@ cd projet-web-valide
 Créer un fichier `.env` à la racine du projet :
 
 ```bash
-# la clé pour notre projet : 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
+# la clé pour notre projet à mettre dans les .env : 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
 
 # Email service
 SENDINBLUE_API_KEY=clé_api_brevo
