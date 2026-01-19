@@ -15,7 +15,6 @@
     justify-content: center;
     transition: all 0.3s;
     z-index: 999;
-    /* Toujours visible mais en dessous de la navbar */
 }
 
 .floating-messages-btn:hover {
@@ -47,7 +46,6 @@
     border: 2px solid white;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .floating-messages-btn {
         left: 1rem;
@@ -62,7 +60,6 @@
     }
 }
 
-/* À ajouter dans Profile.css */
 
 .floating-btn {
     position: fixed;
@@ -87,16 +84,13 @@
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* Bouton messages */
 .messages-btn {
     bottom: 2rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-/* ← NOUVEAU : Bouton interested */
 .interested-btn {
     bottom: 2rem;
-    /* Au-dessus du bouton messages */
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 

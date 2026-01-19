@@ -102,7 +102,6 @@ function AppRouter() {
                     }
                 />
 
-                {/* ← NOUVEAU : Routes reset password (publiques) */}
                 <Route
                     path="/forgot-password"
                     element={
@@ -170,7 +169,6 @@ function AppRouter() {
                     }
                 />
 
-                {/* Redirection par défaut */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>

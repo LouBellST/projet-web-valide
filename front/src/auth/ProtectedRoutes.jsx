@@ -20,7 +20,6 @@ function ProtectedRoute({ children }) {
     }
 
     if (!isAuthenticated) {
-        // Rediriger vers la page de login
         window.location.href = '/login';
         return null;
     }

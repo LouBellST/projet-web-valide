@@ -24,7 +24,7 @@ async function connectRabbitMQ() {
     } catch (error) {
         console.error('RabbitMQ connection error:', error);
         console.log('Retrying in 5 seconds...');
-        // ← AJOUT : Retry automatique
+        // Retry automatique
         setTimeout(connectRabbitMQ, 5000);
     }
 }
@@ -60,12 +60,12 @@ router.get('/', (req, res) => {
     res.json({ message: 'Auth service API' });
 });
 
-// POST /auth/register
+
+
 router.post('/register', async (req, res) => {
     try {
         const { email, password, prenom, nom } = req.body;
 
-        // Validation basique
         if (!email || !password) {
             return res.status(400).json({ error: 'Email et password requis' });
         }
@@ -77,16 +77,13 @@ router.post('/register', async (req, res) => {
         const db = getDB();
         const usersCollection = db.collection('users');
 
-        // Vérifier si l'utilisateur existe déjà
         const existingUser = await usersCollection.findOne({ email });
         if (existingUser) {
             return res.status(409).json({ error: 'Cet email est déjà utilisé' });
         }
 
-        // Hasher le mot de passe
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Créer l'utilisateur dans la collection auth
         const newUser = {
             email,
             password: hashedPassword,
@@ -116,7 +113,6 @@ router.post('/register', async (req, res) => {
             // On continue même si le service users échoue
         }
 
-        // Générer un token JWT
         const token = jwt.sign(
             { 
                 userId: result.insertedId,
@@ -151,12 +147,11 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// POST /auth/login
+
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Validation basique
         if (!email || !password) {
             return res.status(400).json({ error: 'Email et password requis' });
         }
@@ -164,19 +159,16 @@ router.post('/login', async (req, res) => {
         const db = getDB();
         const usersCollection = db.collection('users');
 
-        // Trouver l'utilisateur
         const user = await usersCollection.findOne({ email });
         if (!user) {
             return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
         }
 
-        // Vérifier le mot de passe
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
         }
 
-        // Générer un token JWT
         const token = jwt.sign(
             { 
                 userId: user._id,
@@ -203,7 +195,6 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// POST /auth/forgot-password
 router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -217,14 +208,13 @@ router.post('/forgot-password', async (req, res) => {
         
         const user = await usersCollection.findOne({ email });
         
-        // Ne pas révéler si l'email existe (sécurité)
         if (!user) {
             return res.json({ 
                 message: 'Si cet email existe, un lien de réinitialisation a été envoyé' 
             });
         }
 
-        // Générer un token de réinitialisation
+        // Génére un token de réinitialisation
         const resetToken = crypto.randomBytes(32).toString('hex');
         const resetTokenHash = await bcrypt.hash(resetToken, 10);
 
@@ -239,7 +229,6 @@ router.post('/forgot-password', async (req, res) => {
             }
         );
 
-        // Envoyer l'email
         const userName = `${user.prenom} ${user.nom}`.trim() || email.split('@')[0];
         sendEmail({
             type: 'password_reset',
@@ -258,7 +247,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-// POST /auth/reset-password
+
 router.post('/reset-password', async (req, res) => {
     try {
         const { token, newPassword } = req.body;
@@ -274,7 +263,7 @@ router.post('/reset-password', async (req, res) => {
         const db = getDB();
         const usersCollection = db.collection('users');
 
-        // Trouver un utilisateur avec un token non expiré
+        // Trouve un utilisateur avec un token non expiré
         const user = await usersCollection.findOne({
             resetToken: { $exists: true },
             resetTokenExpiry: { $gt: new Date() }
@@ -284,13 +273,12 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'Token invalide ou expiré' });
         }
 
-        // Vérifier le token
+        // Vérifie le token
         const validToken = await bcrypt.compare(token, user.resetToken);
         if (!validToken) {
             return res.status(400).json({ error: 'Token invalide' });
         }
 
-        // Hasher le nouveau mot de passe
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         // Mettre à jour et supprimer le token
@@ -310,13 +298,14 @@ router.post('/reset-password', async (req, res) => {
     }
 });
 
-// GET /auth/verify - Vérifier si un token est valide
+// GET /auth/verify - Vérifie si un token est valide
 router.get('/verify', authenticateToken, (req, res) => {
     res.json({
         valid: true,
         user: req.user
     });
 });
+
 
 // Route admin pour supprimer TOUS les comptes
 router.delete('/admin/delete-all', async (req, res) => {

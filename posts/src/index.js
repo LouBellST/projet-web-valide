@@ -8,7 +8,6 @@ const app = express();
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Servir les fichiers statiques (images de posts)
 app.use('/uploads', express.static('uploads'));
 
 app.use(router);

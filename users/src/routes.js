@@ -16,10 +16,10 @@ async function connectRabbitMQ() {
         const connection = await amqp.connect(RABBIT_URL);
         channel = await connection.createChannel();
         await channel.assertQueue('emails.send', { durable: true });
-        console.log('✅ Users service connected to RabbitMQ');
+        console.log('Users service connected to RabbitMQ');
     } catch (error) {
-        console.error('❌ RabbitMQ connection error:', error);
-        console.log('⚠️  Retrying in 5 seconds...');
+        console.error('RabbitMQ connection error:', error);
+        console.log('Retrying in 5 seconds...');
         setTimeout(connectRabbitMQ, 5000);
     }
 }
@@ -34,12 +34,12 @@ function sendEmail(emailData) {
                 Buffer.from(JSON.stringify(emailData)),
                 { persistent: true }
             );
-            console.log(`📧 Email queued: ${emailData.type} to ${emailData.email}`);
+            console.log(`Email queued: ${emailData.type} to ${emailData.email}`);
         } catch (error) {
             console.error('Error queueing email:', error);
         }
     } else {
-        console.log('⚠️  Email not sent (RabbitMQ not connected yet):', emailData.type);
+        console.log('Email not sent (RabbitMQ not connected yet):', emailData.type);
     }
 }
 
@@ -80,7 +80,8 @@ router.get('/', (req, res) => {
     res.json({ message: 'Users service API' });
 });
 
-// ← NOUVELLE ROUTE DE RECHERCHE
+
+
 router.get('/search', async (req, res) => {
     try {
         const { q } = req.query;
@@ -92,7 +93,7 @@ router.get('/search', async (req, res) => {
         const db = getDB();
         const profilesCollection = db.collection('profiles');
 
-        // Recherche avec regex insensible à la casse
+        // regex pour recherche insensible à la casse
         const searchRegex = new RegExp(q, 'i');
 
         const users = await profilesCollection.find({
@@ -112,7 +113,8 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// GET /users - Récupérer tous les utilisateurs
+
+//  Récupérer tous les utilisateurs
 router.get('/users', async (req, res) => {
     try {
         const db = getDB();
@@ -128,7 +130,7 @@ router.get('/users', async (req, res) => {
     }
 });
 
-// POST /users - Créer un profil utilisateur
+// Créer un profil utilisateur
 router.post('/users', async (req, res) => {
     try {
         const { userId, email, prenom, nom } = req.body;
@@ -168,7 +170,7 @@ router.post('/users', async (req, res) => {
     }
 });
 
-// GET /users/:userId - Récupérer un profil
+// Récupérer un profil
 router.get('/users/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -184,7 +186,7 @@ router.get('/users/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profil non trouvé' });
         }
 
-        // Récupérer les statistiques
+        // recup les stats
         const followersCount = await followsCollection.countDocuments({ userId });
         const followingCount = await followsCollection.countDocuments({ followerId: userId });
 
@@ -206,7 +208,7 @@ router.get('/users/:userId', async (req, res) => {
     }
 });
 
-// PATCH /users/:userId - Mettre à jour un profil
+// Mettre à jour un profil
 router.patch('/users/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -242,7 +244,7 @@ router.patch('/users/:userId', async (req, res) => {
     }
 });
 
-// POST /users/:userId/photo - Upload photo de profil
+// Upload photo de profil
 router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => {
     try {
         const { userId } = req.params;
@@ -275,7 +277,7 @@ router.post('/users/:userId/photo', upload.single('photo'), async (req, res) => 
     }
 });
 
-// GET /users/uploads/:filename - Servir les photos
+// Servir les photos
 router.get('/uploads/:filename', async (req, res) => {
     try {
         const { filename } = req.params;
@@ -288,7 +290,7 @@ router.get('/uploads/:filename', async (req, res) => {
     }
 });
 
-// POST /users/:userId/follow - Suivre un utilisateur
+// Suivre un utilisateur
 router.post('/users/:userId/follow', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -342,7 +344,7 @@ router.post('/users/:userId/follow', async (req, res) => {
     }
 });
 
-// DELETE /users/:userId/follow - Ne plus suivre
+// Ne plus suivre
 router.delete('/users/:userId/follow', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -368,7 +370,7 @@ router.delete('/users/:userId/follow', async (req, res) => {
     }
 });
 
-// GET /users/:userId/followers - Liste des followers
+// Liste des followers
 router.get('/users/:userId/followers', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -418,7 +420,7 @@ router.get('/users/:userId/followers', async (req, res) => {
     }
 });
 
-// GET /users/:userId/following - Liste des suivis
+// Liste des suivis
 router.get('/users/:userId/following', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -468,7 +470,7 @@ router.get('/users/:userId/following', async (req, res) => {
     }
 });
 
-// GET /users/:userId/stats - Statistiques
+// stats d'un utilisateur
 router.get('/users/:userId/stats', async (req, res) => {
     try {
         const { userId } = req.params;

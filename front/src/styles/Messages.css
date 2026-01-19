@@ -7,18 +7,15 @@
 }
 
 .messages-page-header {
-    /* ← RENOMMÉ */
     margin-bottom: 2rem;
 }
 
 .messages-page-header h1 {
-    /* ← RENOMMÉ */
     margin: 0;
     font-size: 2rem;
     color: #333;
 }
 
-/* Bouton retour au feed */
 .btn-back-to-feed {
     background: transparent;
     border: 2px solid #667eea;
@@ -42,7 +39,6 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-/* Liste des conversations */
 .conversations-list {
     background: white;
     border-radius: 12px;
@@ -96,7 +92,6 @@
 }
 
 .conversation-item-header {
-    /* ← RENOMMÉ pour éviter conflit */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -147,7 +142,6 @@
     margin-left: 0.5rem;
 }
 
-/* Empty state */
 .no-conversations {
     text-align: center;
     padding: 4rem 2rem;
@@ -178,7 +172,6 @@
     color: #666;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .messages-container {
         padding: 1rem 0.5rem 4rem;

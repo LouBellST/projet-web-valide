@@ -60,7 +60,7 @@ function extractTags(content) {
     return tags;
 }
 
-// GET / - Info
+
 router.get('/', (req, res) => {
     res.json({ 
         message: 'Posts service API',
@@ -73,9 +73,10 @@ router.get('/', (req, res) => {
     });
 });
 
+
 // ==================== POSTS ====================
 
-// GET /posts/feed - Feed de posts (tous ou abonnements)
+// Feed de posts (tous ou abonnements)
 router.get('/posts/feed', async (req, res) => {
     try {
         const db = getDB();
@@ -87,7 +88,7 @@ router.get('/posts/feed', async (req, res) => {
         
         // Si followingOnly=true, ne montrer que les posts des abonnements
         if (followingOnly === 'true' && userId) {
-            // Récupérer les IDs des utilisateurs suivis depuis le service users
+            // Récupérer les ids des utilisateurs suivis depuis le service users
             try {
                 const followingResponse = await fetch(`http://users:80/users/${userId}/following?limit=1000`);
                 if (followingResponse.ok) {
@@ -95,7 +96,6 @@ router.get('/posts/feed', async (req, res) => {
                     const followingIds = followingData.following.map(f => f.userId);
                     
                     if (followingIds.length === 0) {
-                        // Pas d'abonnements, retourner vide
                         return res.json({
                             posts: [],
                             pagination: { total: 0, page: 1, limit: parseInt(limit), pages: 0 }
@@ -116,7 +116,6 @@ router.get('/posts/feed', async (req, res) => {
             .limit(parseInt(limit))
             .toArray();
         
-        // Enrichir les posts
         const enrichedPosts = await Promise.all(posts.map(async (post) => {
             const commentsCount = await db.collection('comments').countDocuments({ postId: post._id.toString() });
             
@@ -157,7 +156,7 @@ router.get('/posts/feed', async (req, res) => {
     }
 });
 
-// GET /posts/tags/:tag - Posts par tag
+// Posts par tag
 router.get('/posts/tags/:tag', async (req, res) => {
     try {
         const db = getDB();
@@ -216,7 +215,7 @@ router.get('/posts/tags/:tag', async (req, res) => {
     }
 });
 
-// GET /posts/:postId - Détails d'un post
+// Détails d'un post
 router.get('/posts/:postId', async (req, res) => {
     try {
         const db = getDB();
@@ -258,7 +257,7 @@ router.get('/posts/:postId', async (req, res) => {
     }
 });
 
-// POST /posts - Créer un post
+// Créer un post
 router.post('/posts', postLimiter, upload.single('image'), async (req, res) => {
     try {
         const db = getDB();
@@ -294,7 +293,7 @@ router.post('/posts', postLimiter, upload.single('image'), async (req, res) => {
     }
 });
 
-// PUT /posts/:postId - Modifier un post
+// Modifier un post
 router.put('/posts/:postId', async (req, res) => {
     try {
         const db = getDB();
@@ -340,7 +339,7 @@ router.put('/posts/:postId', async (req, res) => {
     }
 });
 
-// DELETE /posts/:postId - Supprimer un post
+// Supprimer un post
 router.delete('/posts/:postId', async (req, res) => {
     try {
         const db = getDB();
@@ -382,7 +381,7 @@ router.delete('/posts/:postId', async (req, res) => {
 
 // ==================== LIKES ====================
 
-// POST /posts/:postId/like - Liker un post
+// Liker un post
 router.post('/posts/:postId/like', async (req, res) => {
     try {
         const db = getDB();
@@ -433,7 +432,7 @@ router.post('/posts/:postId/like', async (req, res) => {
     }
 });
 
-// DELETE /posts/:postId/like - Unliker un post
+// Unliker un post
 router.delete('/posts/:postId/like', async (req, res) => {
     try {
         const db = getDB();
@@ -474,7 +473,7 @@ router.delete('/posts/:postId/like', async (req, res) => {
 
 // ==================== COMMENTS ====================
 
-// GET /posts/:postId/comments - Commentaires d'un post
+// Commentaires d'un post
 router.get('/posts/:postId/comments', async (req, res) => {
     try {
         const db = getDB();
@@ -507,7 +506,7 @@ router.get('/posts/:postId/comments', async (req, res) => {
     }
 });
 
-// POST /posts/:postId/comments - Commenter un post
+// Commenter un post
 router.post('/posts/:postId/comments', async (req, res) => {
     try {
         const db = getDB();
@@ -538,7 +537,7 @@ router.post('/posts/:postId/comments', async (req, res) => {
     }
 });
 
-// DELETE /comments/:commentId - Supprimer un commentaire
+// Supprimer un commentaire
 router.delete('/comments/:commentId', async (req, res) => {
     try {
         const db = getDB();
@@ -570,7 +569,7 @@ router.delete('/comments/:commentId', async (req, res) => {
 
 // ==================== BOOKMARKS ====================
 
-// GET /bookmarks - Posts enregistrés par un utilisateur
+// Posts enregistrés par un utilisateur
 router.get('/bookmarks', async (req, res) => {
     try {
         const db = getDB();
@@ -624,7 +623,7 @@ router.get('/bookmarks', async (req, res) => {
     }
 });
 
-// POST /bookmarks - Enregistrer un post
+// Enregistrer un post
 router.post('/bookmarks', async (req, res) => {
     try {
         const db = getDB();
@@ -658,7 +657,7 @@ router.post('/bookmarks', async (req, res) => {
     }
 });
 
-// DELETE /bookmarks - Retirer un post enregistré
+// Retirer un post enregistré
 router.delete('/bookmarks', async (req, res) => {
     try {
         const db = getDB();
@@ -681,7 +680,7 @@ router.delete('/bookmarks', async (req, res) => {
     }
 });
 
-// GET /posts/user/:userId - Posts d'un utilisateur
+// Posts d'un utilisateur
 router.get('/posts/user/:userId', async (req, res) => {
     try {
         const db = getDB();
@@ -729,7 +728,7 @@ router.get('/posts/user/:userId', async (req, res) => {
 
 // ==================== EMAILS SUR COMMENTAIRES ====================
 
-// Modifier la route POST /posts/:postId/comments pour ajouter email
+// modif pour envoyer un mail en plus quand qqun commente 
 router.post('/posts/:postId/comments', async (req, res) => {
     try {
         const { postId } = req.params;
@@ -743,7 +742,6 @@ router.post('/posts/:postId/comments', async (req, res) => {
         const postsCollection = db.collection('posts');
         const commentsCollection = db.collection('comments');
 
-        // Vérifier si le post existe
         const post = await postsCollection.findOne({ _id: new ObjectId(postId) });
         if (!post) {
             return res.status(404).json({ error: 'Post non trouvé' });
@@ -759,13 +757,11 @@ router.post('/posts/:postId/comments', async (req, res) => {
 
         await commentsCollection.insertOne(newComment);
 
-        // Mettre à jour le compteur de commentaires
         await postsCollection.updateOne(
             { _id: new ObjectId(postId) },
             { $inc: { commentsCount: 1 } }
         );
 
-        // ← ENVOYER EMAIL si pas le propriétaire du post
         if (post.authorId !== userId) {
             const postOwner = await getUserInfo(post.authorId);
             const commenter = await getUserInfo(userId);
@@ -797,9 +793,9 @@ router.post('/posts/:postId/comments', async (req, res) => {
 
 export default router;
 
-// ==================== HELPER FUNCTIONS ====================
 
-// Fonction pour récupérer les infos d'un utilisateur depuis le service users
+
+
 async function getUserInfo(userId) {
     try {
         const response = await fetch(`http://users:80/users/${userId}`);
@@ -813,7 +809,7 @@ async function getUserInfo(userId) {
     }
 }
 
-// Fonction pour envoyer un email via le service email
+
 async function sendEmail({ type, email, name, userName, postContent, commentContent }) {
     try {
         const response = await fetch('http://email:80/send', {

@@ -23,18 +23,15 @@ export function useAuth() {
   };
 
   useEffect(() => {
-    // Charger l'état initial
     loadAuthState();
     setLoading(false);
 
-    // Écouter les changements de storage (pour sync entre onglets)
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === 'user') {
         loadAuthState();
       }
     };
 
-    // Écouter un événement custom pour les changements dans le même onglet
     const handleAuthChange = () => {
       loadAuthState();
     };
@@ -48,7 +45,6 @@ export function useAuth() {
     };
   }, []);
 
-  // ← NOUVELLE FONCTION : Login avec appel API
   const login = async (email, password) => {
     const response = await fetch('/auth/login', {
       method: 'POST',
@@ -61,7 +57,6 @@ export function useAuth() {
     const data = await response.json();
 
     if (!response.ok) {
-      // Si erreur, throw pour que le composant Login puisse catcher
       throw new Error(data.error || 'Erreur de connexion');
     }
 
@@ -83,7 +78,6 @@ export function useAuth() {
     setToken(null);
     setUser(null);
     
-    // Déclencher l'événement custom pour notifier les autres composants
     window.dispatchEvent(new Event('auth-change'));
   };
 

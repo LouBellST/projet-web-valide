@@ -62,15 +62,17 @@ cd projet-web-valide
 Créer un fichier `.env` à la racine du projet :
 
 ```bash
-# Email service (optionnel en dev)
-SENDINBLUE_API_KEY=votre_clé_api_brevo
+# la clé pour notre projet : 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
+
+# Email service
+SENDINBLUE_API_KEY=clé_api_brevo
 ```
 
 Créer un fichier `.env` dans /email :
 
 ```bash
-# Email service (optionnel en dev)
-BREVO_API_KEY=votre_clé_api_brevo
+# Email service 
+BREVO_API_KEY=clé_api_brevo
 ```
 
 > **Note:** Sans clé API Brevo, les emails seront affichés dans les logs (mode développement).

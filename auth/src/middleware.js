@@ -4,7 +4,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-in-pr
 
 /**
  * Middleware d'authentification JWT
- * À utiliser dans les autres microservices pour protéger les routes
  */
 export function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];

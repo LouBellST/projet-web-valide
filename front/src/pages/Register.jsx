@@ -70,7 +70,6 @@ function Register() {
 
     return (
         <div className="auth-container">
-            {/* ← LOGO EN HAUT */}
             <div className="app-logo">StudentApp</div>
 
             <div className="auth-card">

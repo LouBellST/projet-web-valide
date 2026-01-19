@@ -27,10 +27,10 @@ function Profile() {
     const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
     const [loadingBookmarks, setLoadingBookmarks] = useState(false);
     const [bookmarksCount, setBookmarksCount] = useState(0);
-    const [showComments, setShowComments] = useState({}); // ← NOUVEAU
-    const [comments, setComments] = useState({}); // ← NOUVEAU
-    const [commentText, setCommentText] = useState({}); // ← NOUVEAU
-    const [loadingComments, setLoadingComments] = useState({}); // ← NOUVEAU
+    const [showComments, setShowComments] = useState({});
+    const [comments, setComments] = useState({});
+    const [commentText, setCommentText] = useState({});
+    const [loadingComments, setLoadingComments] = useState({});
 
     useEffect(() => {
         if (user?.id) {
@@ -277,7 +277,6 @@ function Profile() {
         }
     };
 
-    // ← NOUVEAU : Charger les commentaires
     const loadComments = async (postId) => {
         try {
             setLoadingComments({ ...loadingComments, [postId]: true });
@@ -293,7 +292,7 @@ function Profile() {
         }
     };
 
-    // ← NOUVEAU : Toggle commentaires
+    // Afficher/masquer les commentaires d'un post
     const toggleComments = async (postId) => {
         const isShowing = showComments[postId];
         setShowComments({ ...showComments, [postId]: !isShowing });
@@ -303,7 +302,6 @@ function Profile() {
         }
     };
 
-    // ← NOUVEAU : Soumettre un commentaire
     const handleCommentSubmit = async (postId) => {
         const text = commentText[postId];
         if (!text || !text.trim()) return;
@@ -718,7 +716,6 @@ function Profile() {
                                                 {post.isLiked ? '❤️' : '🤍'} {post.likesCount}
                                             </button>
 
-                                            {/* ← MODIFIÉ : Bouton commentaires cliquable */}
                                             <button
                                                 className="btn-action"
                                                 onClick={() => toggleComments(post._id)}
@@ -734,7 +731,6 @@ function Profile() {
                                             </button>
                                         </div>
 
-                                        {/* ← NOUVEAU : Section commentaires */}
                                         {showComments[post._id] && (
                                             <div className="comments-section">
                                                 {loadingComments[post._id] ? (

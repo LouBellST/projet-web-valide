@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Configuration
+// Config
 const PORT = process.env.PORT || 3005;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://mongodb:27017';
 const REDIS_HOST = process.env.REDIS_HOST || 'redis';
@@ -18,11 +18,9 @@ const REDIS_PORT = process.env.REDIS_PORT || 6379;
 const RABBIT_URL = process.env.RABBIT_URL || 'amqp://rabbitmq';
 const USERS_SERVICE_URL = process.env.USERS_SERVICE_URL || 'http://users:80';
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Connexion MongoDB
 let db;
 let conversationsCollection;
 let messagesCollection;
@@ -44,6 +42,7 @@ MongoClient.connect(MONGO_URI, { useUnifiedTopology: true })
     })
     .catch(err => console.error('MongoDB connection error:', err));
 
+    
 // Connexion Redis pour pub/sub
 const redisPublisher = redis.createClient({
     socket: {
@@ -93,7 +92,6 @@ async function connectRabbitMQ() {
 
 connectRabbitMQ();
 
-// Fonction pour envoyer un email
 function sendEmail(emailData) {
     if (channel) {
         try {
@@ -112,7 +110,7 @@ function sendEmail(emailData) {
 // Map des connexions WebSocket par userId
 const connectedUsers = new Map();
 
-// WebSocket - Gestion des connexions
+// Gestion des connexions avec WebSocket
 wss.on('connection', (ws, req) => {
     console.log('New WebSocket connection');
 
@@ -127,7 +125,7 @@ wss.on('connection', (ws, req) => {
                 connectedUsers.set(data.userId, ws);
                 console.log(`User ${data.userName} (${data.userId}) authenticated`);
 
-                // ← NOUVEAU : Mettre à jour l'activité de l'utilisateur
+                // Garde une trace de la dernière activité et statut en ligne
                 await userActivityCollection.updateOne(
                     { userId: data.userId },
                     { 
@@ -146,7 +144,6 @@ wss.on('connection', (ws, req) => {
                     }
                 });
 
-                // Envoyer confirmation
                 ws.send(JSON.stringify({
                     type: 'auth_success',
                     userId: data.userId
@@ -162,7 +159,7 @@ wss.on('connection', (ws, req) => {
             connectedUsers.delete(ws.userId);
             console.log(`User ${ws.userId} disconnected`);
 
-            // ← NOUVEAU : Marquer comme hors ligne
+            // Pour marquer l'user comme hors ligne
             try {
                 await userActivityCollection.updateOne(
                     { userId: ws.userId },
@@ -180,18 +177,16 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-// ← NOUVEAU : Fonction pour vérifier si l'utilisateur est inactif
+// Verifie si l'user est inactif
 async function isUserInactive(userId) {
     try {
         const activity = await userActivityCollection.findOne({ userId });
         
-        // Si pas d'activité enregistrée, considérer comme inactif
         if (!activity) return true;
         
-        // Si en ligne, ne pas envoyer d'email
         if (activity.online) return false;
         
-        // Vérifier si inactif depuis plus d'1 heure
+        // inactif depuis plus d'1 heure ?
         const oneHourAgo = new Date(Date.now() - 3600000);
         return activity.lastActivity < oneHourAgo;
     } catch (error) {
@@ -199,6 +194,7 @@ async function isUserInactive(userId) {
         return true; // En cas d'erreur, envoyer l'email par sécurité
     }
 }
+
 
 // ==================== ROUTES API ====================
 
@@ -211,7 +207,6 @@ app.post('/conversations', async (req, res) => {
             return res.status(400).json({ error: 'userId1 et userId2 requis' });
         }
 
-        // Vérifier si une conversation existe déjà
         const existingConversation = await conversationsCollection.findOne({
             participants: { $all: [userId1, userId2] }
         });
@@ -220,7 +215,6 @@ app.post('/conversations', async (req, res) => {
             return res.json({ conversation: existingConversation });
         }
 
-        // Créer une nouvelle conversation
         const conversation = {
             participants: [userId1, userId2],
             participantsInfo: {
@@ -241,6 +235,7 @@ app.post('/conversations', async (req, res) => {
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
+
 
 // Obtenir toutes les conversations d'un utilisateur
 app.get('/conversations/:userId', async (req, res) => {
@@ -284,7 +279,6 @@ app.post('/messages', async (req, res) => {
             return res.status(400).json({ error: 'conversationId, senderId et content requis' });
         }
 
-        // Créer le message
         const message = {
             conversationId,
             senderId,
@@ -297,7 +291,6 @@ app.post('/messages', async (req, res) => {
         const result = await messagesCollection.insertOne(message);
         message._id = result.insertedId;
 
-        // Mettre à jour la conversation
         await conversationsCollection.updateOne(
             { _id: new ObjectId(conversationId) },
             {
@@ -308,14 +301,14 @@ app.post('/messages', async (req, res) => {
             }
         );
 
-        // Trouver le destinataire
+        // Trouve le destinataire
         const conversation = await conversationsCollection.findOne({
             _id: new ObjectId(conversationId)
         });
 
         const recipientId = conversation.participants.find(id => id !== senderId);
 
-        // Publier le message via Redis pub/sub
+        // Publie le message via Redis pub/sub
         const messageData = JSON.stringify({
             type: 'new_message',
             message: {
@@ -327,7 +320,6 @@ app.post('/messages', async (req, res) => {
         await redisPublisher.publish(`user:${recipientId}`, messageData);
         await redisPublisher.publish(`user:${senderId}`, messageData);
 
-        // ← NOUVEAU : Envoyer email SEULEMENT si l'utilisateur est inactif depuis 1h
         const inactive = await isUserInactive(recipientId);
         
         if (inactive) {
@@ -360,6 +352,7 @@ app.post('/messages', async (req, res) => {
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
+
 
 // Obtenir les messages d'une conversation
 app.get('/messages/:conversationId', async (req, res) => {
@@ -442,13 +435,11 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Démarrer le serveur
 server.listen(PORT, () => {
     console.log(`Messages service listening on port ${PORT}`);
     console.log(`WebSocket server ready`);
 });
 
-// Gestion des erreurs
 process.on('SIGTERM', async () => {
     console.log('SIGTERM received, closing connections...');
     await redisPublisher.quit();

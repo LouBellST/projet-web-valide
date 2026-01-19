@@ -11,7 +11,6 @@ export async function connectDB() {
         db = client.db(MONGO_DB);
         console.log('Connected to MongoDB (Users service) - Database:', MONGO_DB);
         
-        // Créer des index pour améliorer les performances
         await db.collection('profiles').createIndex({ userId: 1 }, { unique: true });
         await db.collection('profiles').createIndex({ email: 1 }, { unique: true });
         await db.collection('profiles').createIndex({ createdAt: -1 });

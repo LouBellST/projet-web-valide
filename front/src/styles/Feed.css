@@ -4,7 +4,6 @@
     padding: 2rem 1rem;
     min-height: 100vh;
     width: 50%;
-    /* AJOUTÉ */
 }
 
 .feed-header {
@@ -35,7 +34,6 @@
     transform: translateY(-2px);
 }
 
-/* Toggle Tous / Abonnements */
 .feed-filter {
     display: flex;
     gap: 0.5rem;
@@ -173,13 +171,11 @@
     background: #f8f9ff;
 }
 
-/* Liste des posts */
 .posts-list {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     padding-bottom: 2rem;
-    /* AJOUTÉ pour espace en bas */
 }
 
 .no-posts {
@@ -198,7 +194,6 @@
     margin-top: 1rem;
 }
 
-/* Post card */
 .post-card {
     background: white;
     border-radius: 12px;
@@ -334,7 +329,6 @@
     color: #667eea;
 }
 
-/* Comments section */
 .comments-section {
     margin-top: 1rem;
     padding-top: 1rem;
@@ -484,7 +478,6 @@
     color: #666;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .feed-container {
         padding: 1rem 0.5rem;

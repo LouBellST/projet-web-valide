@@ -29,7 +29,6 @@ function Navbar() {
         setShowResults(true);
 
         try {
-            // ← VRAIE API DE RECHERCHE
             const usersResponse = await fetch(`/users/search?q=${encodeURIComponent(query)}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`

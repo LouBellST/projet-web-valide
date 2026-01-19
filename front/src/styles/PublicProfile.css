@@ -13,7 +13,6 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Header */
 .profile-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     padding: 3rem 2rem 2rem;
@@ -91,7 +90,6 @@
     margin-top: 0.25rem;
 }
 
-/* ← NOUVEAU : Actions (Suivre + Message) */
 .profile-actions {
     display: flex;
     gap: 1rem;
@@ -121,7 +119,6 @@
     color: #666;
 }
 
-/* ← NOUVEAU : Bouton Message */
 .btn-message {
     background: white;
     color: #667eea;
@@ -140,7 +137,6 @@
     box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
 }
 
-/* User Posts Section */
 .user-posts {
     padding: 2rem;
 }
@@ -163,7 +159,6 @@
     gap: 1.5rem;
 }
 
-/* Post card */
 .post-card {
     background: #f8f8f8;
     border-radius: 12px;
@@ -255,7 +250,6 @@
     color: #e74c3c;
 }
 
-/* ← NOUVEAU : Section commentaires */
 .comments-section {
     margin-top: 1rem;
     padding-top: 1rem;
@@ -405,7 +399,6 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .public-profile-container {
         padding: 1rem 0.5rem 4rem;
@@ -469,8 +462,6 @@
     }
 }
 
-/* ==================== BOUTON RETOUR AU FEED ==================== */
-/* À ajouter dans PublicProfile.css, Profile.css et Messages.css */
 
 .btn-back-to-feed {
     background: transparent;
@@ -495,7 +486,6 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .btn-back-to-feed {
         padding: 0.6rem 1.2rem;

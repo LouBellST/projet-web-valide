@@ -28,7 +28,7 @@ export function useWebSocket(user) {
             ws.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('📨 Message reçu:', data);
+                    console.log('Message reçu:', data);
                     setLastMessage(data);
                 } catch (error) {
                     console.error('Error parsing message:', error);
@@ -39,9 +39,9 @@ export function useWebSocket(user) {
                 console.log('WebSocket disconnected');
                 setIsConnected(false);
 
-                // Reconnexion automatique après 3 secondes
+                // Reconnexion automatique après 3s
                 reconnectTimeout.current = setTimeout(() => {
-                    console.log('🔄 Tentative de reconnexion...');
+                    console.log('Tentative de reconnexion...');
                     connect();
                 }, 3000);
             };

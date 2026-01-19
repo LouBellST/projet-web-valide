@@ -79,7 +79,7 @@ function Messages() {
                 ← Retour au feed
             </button>
 
-            <div className="messages-page-header">  {/* ← RENOMMÉ */}
+            <div className="messages-page-header">
                 <h1>Messages</h1>
             </div>
 
@@ -107,7 +107,7 @@ function Messages() {
                                 </div>
 
                                 <div className="conversation-info">
-                                    <div className="conversation-item-header">  {/* ← RENOMMÉ */}
+                                    <div className="conversation-item-header">
                                         <span className="conversation-name">
                                             {otherUser?.name || 'Utilisateur'}
                                         </span>

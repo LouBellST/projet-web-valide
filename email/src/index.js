@@ -6,17 +6,16 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 80;
 
-// Configuration
+// Config rabbit et brevo
 const RABBIT_URL = process.env.RABBIT_URL || 'amqp://rabbitmq';
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FROM_EMAIL = process.env.FROM_EMAIL || 'projetweb.noreply@gmail.com';
 const FROM_NAME = process.env.FROM_NAME || 'Projet Web';
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Configuration Brevo
+// Config Brevo
 let apiInstance;
 if (BREVO_API_KEY) {
     apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
@@ -55,49 +54,7 @@ async function sendEmail({ to, subject, htmlContent, textContent }) {
 
 // Templates d'emails
 const templates = {
-    postInterested: (name, userName, postContent) => ({
-        subject: `${userName} est intéressé par votre post`,
-        htmlContent: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">👍 Quelqu'un est intéressé !</h1>
-                </div>
-                <div style="padding: 30px; background: #f8f8f8;">
-                    <p style="font-size: 16px; line-height: 1.6;">
-                        Bonjour ${name},
-                    </p>
-                    <p style="font-size: 16px; line-height: 1.6;">
-                        <strong>${userName}</strong> est intéressé par votre post :
-                    </p>
-                    <div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px;">
-                        <p style="color: #666; font-style: italic; margin: 0;">
-                            "${postContent}..."
-                        </p>
-                    </div>
-                    <p style="font-size: 16px; line-height: 1.6;">
-                        Vous pouvez voir tous les utilisateurs intéressés par vos posts et leur envoyer un message.
-                    </p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${process.env.APP_URL || 'http://localhost:8080'}/my-interested" 
-                           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                  color: white; 
-                                  padding: 15px 30px; 
-                                  text-decoration: none; 
-                                  border-radius: 8px;
-                                  display: inline-block;">
-                            Voir les personnes intéressées
-                        </a>
-                    </div>
-                </div>
-                <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
-                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-                </div>
-            </div>
-        `,
-        textContent: `Bonjour ${name},\n\n${userName} est intéressé par votre post :\n"${postContent}..."\n\nVoir tous les intéressés : ${process.env.APP_URL}/my-interested`
-    }),
-
-    // ← NOUVEAU : Nouveau commentaire sur ton post
+    // Nouveau commentaire sur ton post
     postComment: (name, userName, postContent, commentContent) => ({
         subject: `${userName} a commenté votre post`,
         htmlContent: `
@@ -139,6 +96,7 @@ const templates = {
         `,
         textContent: `Bonjour ${name},\n\n${userName} a commenté votre post :\nVotre post : "${postContent}..."\nCommentaire : "${commentContent}..."\n\nVoir : ${process.env.APP_URL}/`
     }),
+    // Bienvenue dans l'application
     welcome: (name) => ({
         subject: 'Bienvenue !',
         htmlContent: `
@@ -172,7 +130,7 @@ const templates = {
         `,
         textContent: `Bienvenue ${name} !\n\nMerci de vous être inscrit ! Votre compte a été créé avec succès.\n\nVous pouvez maintenant vous connecter et commencer à utiliser l'application.`
     }),
-
+    // Réinitialisation de mot de passe 
     passwordReset: (name, resetToken) => ({
         subject: 'Réinitialisation de mot de passe',
         htmlContent: `
@@ -212,7 +170,7 @@ const templates = {
         `,
         textContent: `Bonjour ${name},\n\nVous avez demandé la réinitialisation de votre mot de passe.\n\nCliquez sur ce lien : ${process.env.APP_URL}/reset-password?token=${resetToken}\n\nCe lien est valide pendant 1 heure.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet email.`
     }),
-
+    // Nouveau message privé
     newMessage: (name, senderName) => ({
         subject: `Nouveau message de ${senderName}`,
         htmlContent: `
@@ -246,7 +204,7 @@ const templates = {
         `,
         textContent: `Bonjour ${name},\n\n${senderName} vous a envoyé un nouveau message.\n\nConnectez-vous pour le lire : ${process.env.APP_URL}/chat`
     }),
-
+    // Nouveau follower
     newFollower: (name, followerName) => ({
         subject: `${followerName} vous suit maintenant !`,
         htmlContent: `
@@ -281,6 +239,7 @@ const templates = {
         textContent: `Bonjour ${name},\n\n${followerName} a commencé à vous suivre !\n\nVoir votre profil : ${process.env.APP_URL}/profile`
     })
 };
+
 
 // ==================== RABBITMQ CONSUMER ====================
 
@@ -360,12 +319,10 @@ async function connectRabbitMQ() {
     }
 }
 
-// Démarrer la connexion RabbitMQ
 connectRabbitMQ();
 
-// ==================== API REST ====================
 
-// Envoyer un email directement (pour tests ou usage synchrone)
+// Envoyer un email directement 
 app.post('/send', async (req, res) => {
     try {
         const { to, type, data } = req.body;
@@ -412,7 +369,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// Health check
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
@@ -422,10 +378,10 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Démarrer le serveur
 app.listen(PORT, () => {
     console.log(`Email service listening on port ${PORT}`);
 });
+
 
 // Gestion propre de l'arrêt
 process.on('SIGTERM', async () => {
