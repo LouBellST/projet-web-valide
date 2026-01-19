@@ -59,6 +59,7 @@ function MessagesFloatingButton() {
                 <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
         </button>
+
     );
 }
 

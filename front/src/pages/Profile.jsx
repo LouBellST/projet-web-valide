@@ -20,6 +20,7 @@ function Profile() {
     const [photoPreview, setPhotoPreview] = useState(null);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [showModal, setShowModal] = useState(null);
+    const [modalPagination, setModalPagination] = useState({ page: 1, hasMore: true });
     const [modalUsers, setModalUsers] = useState([]);
     const [modalLoading, setModalLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('profile');
@@ -35,6 +36,9 @@ function Profile() {
         if (user?.id) {
             loadProfile();
             loadBookmarksCount();
+        } else if (user === null) {
+            // User is not logged in, stop loading
+            setLoading(false);
         }
     }, [user]);
 
@@ -78,12 +82,18 @@ function Profile() {
         }
     };
 
-    const loadFollowersOrFollowing = async (type) => {
+    const loadFollowersOrFollowing = async (type, loadMore = false) => {
         try {
-            setModalLoading(true);
+            if (!loadMore) {
+                setModalLoading(true);
+                setModalUsers([]);
+                setModalPagination({ page: 1, hasMore: true });
+            }
+
+            const currentPage = loadMore ? modalPagination.page : 1;
             const endpoint = type === 'followers'
-                ? `/users/users/${user.id}/followers`
-                : `/users/users/${user.id}/following`;
+                ? `/users/users/${user.id}/followers?page=${currentPage}&limit=20`
+                : `/users/users/${user.id}/following?page=${currentPage}&limit=20`;
 
             const response = await authFetch(endpoint);
 
@@ -100,14 +110,30 @@ function Profile() {
                     const profileData = await profileResponse.json();
                     return {
                         ...u,
+                        name: `${u.prenom || ''} ${u.nom || ''}`.trim() || u.email?.split('@')[0] || 'Utilisateur',
                         isFollowing: profileData.isFollowing
                     };
                 }
-                return { ...u, isFollowing: false };
+                return {
+                    ...u,
+                    name: `${u.prenom || ''} ${u.nom || ''}`.trim() || u.email?.split('@')[0] || 'Utilisateur',
+                    isFollowing: false
+                };
             }));
 
-            setModalUsers(enrichedUsers);
-            setShowModal(type);
+            if (loadMore) {
+                setModalUsers(prev => [...prev, ...enrichedUsers]);
+                setModalPagination({
+                    page: currentPage + 1,
+                    hasMore: enrichedUsers.length === 20
+                });
+            } else {
+                setModalUsers(enrichedUsers);
+                setModalPagination({
+                    page: 2,
+                    hasMore: enrichedUsers.length === 20
+                });
+            }
         } catch (error) {
             console.error('Error loading users:', error);
         } finally {
@@ -137,6 +163,8 @@ function Profile() {
 
     const handleUserClick = (userId) => {
         setShowModal(null);
+        setModalUsers([]);
+        setModalPagination({ page: 1, hasMore: true });
         if (userId === user.id) {
             return;
         }
@@ -361,6 +389,19 @@ function Profile() {
         );
     }
 
+    if (!user) {
+        return (
+            <div className="profile-container">
+                <div className="error">
+                    <p>Vous devez être connecté pour accéder à votre profil</p>
+                    <button onClick={() => navigate('/login')} className="btn-primary">
+                        Se connecter
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (!profile) {
         return (
             <div className="profile-container">
@@ -443,16 +484,22 @@ function Profile() {
                 <div className="profile-stats">
                     <button
                         className="stat-button"
-                        onClick={() => loadFollowersOrFollowing('followers')}
+                        onClick={() => {
+                            loadFollowersOrFollowing('followers');
+                            setShowModal('followers');
+                        }}
                     >
                         <strong>{profile.followersCount || 0}</strong>
                         <span>Abonnés</span>
                     </button>
                     <button
                         className="stat-button"
-                        onClick={() => loadFollowersOrFollowing('following')}
+                        onClick={() => {
+                            loadFollowersOrFollowing('following');
+                            setShowModal('following');
+                        }}
                     >
-                        <strong>{profile.followingCount || 0}</strong>
+                        <strong>{profile.followingCount - 1 || 0}</strong>
                         <span>Abonnements</span>
                     </button>
                 </div>
@@ -763,7 +810,7 @@ function Profile() {
                         </div>
 
                         <div className="modal-body">
-                            {modalLoading ? (
+                            {modalLoading && modalUsers.length === 0 ? (
                                 <div className="modal-loading">Chargement...</div>
                             ) : modalUsers.length === 0 ? (
                                 <div className="modal-empty">
@@ -773,7 +820,15 @@ function Profile() {
                                     }
                                 </div>
                             ) : (
-                                <div className="users-list">
+                                <div
+                                    className="users-list"
+                                    onScroll={(e) => {
+                                        const { scrollTop, scrollHeight, clientHeight } = e.target;
+                                        if (scrollTop + clientHeight >= scrollHeight - 100 && modalPagination.hasMore && !modalLoading) {
+                                            loadFollowersOrFollowing(showModal, true);
+                                        }
+                                    }}
+                                >
                                     {modalUsers.map(u => (
                                         <div key={u.userId} className="user-item">
                                             <div
@@ -796,7 +851,7 @@ function Profile() {
                                             >
                                                 <span className="user-name">{u.name}</span>
                                                 <span className="user-date">
-                                                    Depuis {new Date(u.followedAt).toLocaleDateString('fr-FR')}
+                                                    Depuis {u.followedAt ? new Date(u.followedAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
                                                 </span>
                                             </div>
                                             {u.userId !== user.id && (
@@ -809,6 +864,9 @@ function Profile() {
                                             )}
                                         </div>
                                     ))}
+                                    {modalLoading && modalUsers.length > 0 && (
+                                        <div className="modal-loading">Chargement de plus...</div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -568,6 +568,8 @@ label[for="photo"] {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .user-item {

@@ -68,7 +68,8 @@ router.get('/', (req, res) => {
         collections: {
             posts: 'Posts avec likes et tags',
             comments: 'Commentaires sur les posts',
-            bookmarks: 'Posts enregistrés par utilisateur'
+            bookmarks: 'Posts enregistrés par utilisateur',
+            interested: 'Utilisateurs intéressés par les posts'
         }
     });
 });
@@ -122,6 +123,7 @@ router.get('/posts/feed', async (req, res) => {
             
             let isLiked = false;
             let isBookmarked = false;
+            let isInterested = false;
             
             if (userId) {
                 isLiked = post.likes?.some(like => like.userId === userId) || false;
@@ -130,6 +132,11 @@ router.get('/posts/feed', async (req, res) => {
                     postId: post._id.toString() 
                 });
                 isBookmarked = !!bookmark;
+                const interested = await db.collection('interested').findOne({
+                    userId,
+                    postId: post._id.toString()
+                });
+                isInterested = !!interested;
             }
             
             return {
@@ -137,7 +144,8 @@ router.get('/posts/feed', async (req, res) => {
                 likesCount: post.likes?.length || 0,
                 commentsCount,
                 isLiked,
-                isBookmarked
+                isBookmarked,
+                isInterested
             };
         }));
         
@@ -180,6 +188,7 @@ router.get('/posts/tags/:tag', async (req, res) => {
             
             let isLiked = false;
             let isBookmarked = false;
+            let isInterested = false;
             
             if (userId) {
                 isLiked = post.likes?.some(like => like.userId === userId) || false;
@@ -188,6 +197,11 @@ router.get('/posts/tags/:tag', async (req, res) => {
                     postId: post._id.toString() 
                 });
                 isBookmarked = !!bookmark;
+                const interested = await db.collection('interested').findOne({
+                    userId,
+                    postId: post._id.toString()
+                });
+                isInterested = !!interested;
             }
             
             return {
@@ -195,7 +209,8 @@ router.get('/posts/tags/:tag', async (req, res) => {
                 likesCount: post.likes?.length || 0,
                 commentsCount,
                 isLiked,
-                isBookmarked
+                isBookmarked,
+                isInterested
             };
         }));
         
@@ -238,11 +253,17 @@ router.get('/posts/:postId', async (req, res) => {
         
         let isLiked = false;
         let isBookmarked = false;
+        let isInterested = false;
         
         if (userId) {
             isLiked = post.likes?.some(like => like.userId === userId) || false;
             const bookmark = await db.collection('bookmarks').findOne({ userId, postId });
             isBookmarked = !!bookmark;
+            const interested = await db.collection('interested').findOne({
+                userId,
+                postId: post._id.toString()
+            });
+            isInterested = !!interested;
         }
         
         res.json({
@@ -250,7 +271,8 @@ router.get('/posts/:postId', async (req, res) => {
             likesCount: post.likes?.length || 0,
             commentsCount,
             isLiked,
-            isBookmarked
+            isBookmarked,
+            isInterested
         });
     } catch (error) {
         console.error('Error fetching post:', error);
@@ -372,6 +394,7 @@ router.delete('/posts/:postId', async (req, res) => {
         await db.collection('posts').deleteOne({ _id: new ObjectId(postId) });
         await db.collection('comments').deleteMany({ postId });
         await db.collection('bookmarks').deleteMany({ postId });
+        await db.collection('interested').deleteMany({ postId });
         
         res.json({ message: 'Post supprimé' });
     } catch (error) {
@@ -603,7 +626,11 @@ router.get('/bookmarks', async (req, res) => {
                 likesCount: post.likes?.length || 0,
                 commentsCount,
                 isLiked,
-                isBookmarked: true
+                isBookmarked: true,
+                isInterested: await db.collection('interested').findOne({
+                    userId,
+                    postId: post._id.toString()
+                }) ? true : false   
             };
         }));
         
@@ -726,4 +753,295 @@ router.get('/posts/user/:userId', async (req, res) => {
     }
 });
 
+// ==================== ROUTES INTÉRESSÉ ====================
+
+// POST /posts/:postId/interested - Marquer comme intéressé
+router.post('/posts/:postId/interested', async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'userId requis' });
+        }
+
+        const db = getDB();
+        const postsCollection = db.collection('posts');
+        const interestedCollection = db.collection('interested');
+
+        // Vérifier si le post existe
+        const post = await postsCollection.findOne({ _id: new ObjectId(postId) });
+        if (!post) {
+            return res.status(404).json({ error: 'Post non trouvé' });
+        }
+
+        // Vérifier si déjà intéressé
+        const existing = await interestedCollection.findOne({ postId, userId });
+        if (existing) {
+            return res.status(409).json({ error: 'Déjà marqué comme intéressé' });
+        }
+
+        // Créer l'intérêt
+        const newInterest = {
+            postId,
+            userId,
+            createdAt: new Date()
+        };
+
+        await interestedCollection.insertOne(newInterest);
+
+        // ← ENVOYER EMAIL si pas le propriétaire du post
+        if (post.authorId !== userId) {
+            const postOwner = await getUserInfo(post.authorId);
+            const interestedUser = await getUserInfo(userId);
+
+            if (postOwner && interestedUser) {
+                const postOwnerName = `${postOwner.prenom} ${postOwner.nom}`.trim() || postOwner.email.split('@')[0];
+                const interestedUserName = `${interestedUser.prenom} ${interestedUser.nom}`.trim() || interestedUser.email.split('@')[0];
+
+                sendEmail({
+                    type: 'post_interested',
+                    email: postOwner.email,
+                    name: postOwnerName,
+                    userName: interestedUserName,
+                    postContent: post.content.substring(0, 100)
+                });
+            }
+        }
+
+        res.status(201).json({ message: 'Marqué comme intéressé' });
+    } catch (error) {
+        console.error('Error marking interested:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// DELETE /posts/:postId/interested/:userId - Retirer l'intérêt
+router.delete('/posts/:postId/interested/:userId', async (req, res) => {
+    try {
+        const { postId, userId } = req.params;
+
+        const db = getDB();
+        const interestedCollection = db.collection('interested');
+
+        const result = await interestedCollection.deleteOne({ postId, userId });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'Intérêt non trouvé' });
+        }
+
+        res.json({ message: 'Intérêt retiré' });
+    } catch (error) {
+        console.error('Error removing interest:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// GET /posts/:postId/interested - Liste des utilisateurs intéressés
+router.get('/posts/:postId/interested', async (req, res) => {
+    try {
+        const { postId } = req.params;
+
+        const db = getDB();
+        const interestedCollection = db.collection('interested');
+
+        const interests = await interestedCollection
+            .find({ postId })
+            .sort({ createdAt: -1 })
+            .toArray();
+
+        // Récupérer les infos des utilisateurs
+        const userIds = interests.map(i => i.userId);
+        const usersInfo = await Promise.all(
+            userIds.map(userId => getUserInfo(userId))
+        );
+
+        const interestedUsers = usersInfo
+            .filter(u => u !== null)
+            .map((user, index) => ({
+                ...user,
+                interestedAt: interests[index].createdAt
+            }));
+
+        res.json({ interestedUsers });
+    } catch (error) {
+        console.error('Error fetching interested users:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// GET /posts/interested/by-user/:userId - Posts où l'utilisateur est intéressé par ses propres posts
+router.get('/posts/interested/by-user/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const db = getDB();
+        const postsCollection = db.collection('posts');
+        const interestedCollection = db.collection('interested');
+
+        // Récupérer les posts de l'utilisateur
+        const userPosts = await postsCollection
+            .find({ authorId: userId })
+            .toArray();
+
+        const postIds = userPosts.map(p => p._id.toString());
+
+        // Récupérer tous les intéressés pour ces posts
+        const interests = await interestedCollection
+            .find({ postId: { $in: postIds } })
+            .toArray();
+
+        // Grouper par post
+        const postInterests = {};
+        for (const interest of interests) {
+            if (!postInterests[interest.postId]) {
+                postInterests[interest.postId] = [];
+            }
+            postInterests[interest.postId].push(interest);
+        }
+
+        // Récupérer les infos de tous les utilisateurs intéressés
+        const allUserIds = [...new Set(interests.map(i => i.userId))];
+        const usersInfo = await Promise.all(
+            allUserIds.map(uid => getUserInfo(uid))
+        );
+        
+        const usersMap = {};
+        usersInfo.forEach(user => {
+            if (user) {
+                usersMap[user.userId] = user;
+            }
+        });
+
+        // Construire la réponse avec posts + intéressés
+        const postsWithInterested = userPosts.map(post => {
+            const postId = post._id.toString();
+            const postInterestsList = postInterests[postId] || [];
+            
+            const interestedUsers = postInterestsList.map(interest => ({
+                ...usersMap[interest.userId],
+                interestedAt: interest.createdAt
+            })).filter(u => u.userId); // Enlever les nulls
+
+            return {
+                post,
+                interestedUsers,
+                interestedCount: interestedUsers.length
+            };
+        }).filter(p => p.interestedCount > 0); // Seulement les posts avec intéressés
+
+        res.json({ postsWithInterested });
+    } catch (error) {
+        console.error('Error fetching posts with interested:', error);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// ==================== EMAILS SUR COMMENTAIRES ====================
+
+// Modifier la route POST /posts/:postId/comments pour ajouter email
+router.post('/posts/:postId/comments', async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { userId, userName, content } = req.body;
+
+        if (!userId || !content) {
+            return res.status(400).json({ error: 'userId et content requis' });
+        }
+
+        const db = getDB();
+        const postsCollection = db.collection('posts');
+        const commentsCollection = db.collection('comments');
+
+        // Vérifier si le post existe
+        const post = await postsCollection.findOne({ _id: new ObjectId(postId) });
+        if (!post) {
+            return res.status(404).json({ error: 'Post non trouvé' });
+        }
+
+        const newComment = {
+            postId,
+            userId,
+            userName,
+            content,
+            createdAt: new Date()
+        };
+
+        await commentsCollection.insertOne(newComment);
+
+        // Mettre à jour le compteur de commentaires
+        await postsCollection.updateOne(
+            { _id: new ObjectId(postId) },
+            { $inc: { commentsCount: 1 } }
+        );
+
+        // ← ENVOYER EMAIL si pas le propriétaire du post
+        if (post.authorId !== userId) {
+            const postOwner = await getUserInfo(post.authorId);
+            const commenter = await getUserInfo(userId);
+
+            if (postOwner && commenter) {
+                const postOwnerName = `${postOwner.prenom} ${postOwner.nom}`.trim() || postOwner.email.split('@')[0];
+                const commenterName = `${commenter.prenom} ${commenter.nom}`.trim() || commenter.email.split('@')[0];
+
+                sendEmail({
+                    type: 'post_comment',
+                    email: postOwner.email,
+                    name: postOwnerName,
+                    userName: commenterName,
+                    postContent: post.content.substring(0, 100),
+                    commentContent: content.substring(0, 100)
+                });
+            }
+        }
+
+        res.status(201).json({
+            message: 'Commentaire ajouté',
+            comment: newComment
+        });
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        res.status(500).json({ error: 'Erreur lors de l\'ajout du commentaire' });
+    }
+});
+
 export default router;
+
+// ==================== HELPER FUNCTIONS ====================
+
+// Fonction pour récupérer les infos d'un utilisateur depuis le service users
+async function getUserInfo(userId) {
+    try {
+        const response = await fetch(`http://users:80/users/${userId}`);
+        if (response.ok) {
+            return await response.json();
+        }
+        return null;
+    } catch (error) {
+        console.error('Error fetching user info:', error);
+        return null;
+    }
+}
+
+// Fonction pour envoyer un email via le service email
+async function sendEmail({ type, email, name, userName, postContent, commentContent }) {
+    try {
+        const response = await fetch('http://email:80/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to: email,
+                type,
+                data: { name, userName, postContent, commentContent }
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Error sending email:', await response.text());
+        }
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+}

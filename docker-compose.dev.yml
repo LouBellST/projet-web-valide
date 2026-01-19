@@ -77,27 +77,7 @@ services:
       - posts_uploads:/app/uploads
     depends_on:
       - mongodb
-
-  groups:
-    container_name: projet-web-groups
-    build:
-      context: groups
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3003:80"
-    environment:
-      - MONGO_URI=mongodb://mongodb:27017/
-      - MONGO_DB=groupsdb
-      - REDIS_HOST=redis
-      - RABBIT_URL=amqp://rabbitmq
-      - RABBIT_EXCHANGE=groups.events
-    volumes:
-      - ./groups/src:/app/src
-    depends_on:
       - users
-      - mongodb
-      - redis
-      - rabbitmq
 
   front:
     container_name: projet-web-front
@@ -113,22 +93,6 @@ services:
       - auth
       - users
       - posts
-      - groups
-
-  notifier:
-    container_name: projet-web-notifier
-    build:
-      context: notifier
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3004:80"
-    environment:
-      - RABBIT_URL=amqp://rabbitmq
-      - RABBIT_EXCHANGE=groups.events
-    volumes:
-      - ./notifier/src:/app/src
-    depends_on:
-      - rabbitmq
 
   reverseproxy:
     container_name: projet-web-reverse
@@ -139,7 +103,6 @@ services:
       - auth
       - users
       - posts
-      - groups
     volumes:
       - ./reverse-proxy/log:/var/log/nginx
     ports:

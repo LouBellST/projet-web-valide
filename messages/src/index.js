@@ -114,7 +114,7 @@ const connectedUsers = new Map();
 
 // WebSocket - Gestion des connexions
 wss.on('connection', (ws, req) => {
-    console.log('📱 New WebSocket connection');
+    console.log('New WebSocket connection');
 
     ws.on('message', async (message) => {
         try {

@@ -118,3 +118,30 @@
 .auth-footer a:hover {
     text-decoration: underline;
 }
+
+/* Ajout dans Auth.css pour le logo */
+
+.app-logo {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    font-size: 2rem;
+    font-weight: 800;
+    background: white;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+    letter-spacing: -1px;
+    z-index: 10;
+}
+
+@media (max-width: 768px) {
+    .app-logo {
+        top: 1rem;
+        left: 1rem;
+        font-size: 1.5rem;
+    }
+}
+
+/* Ajout dans Auth.css pour le logo */

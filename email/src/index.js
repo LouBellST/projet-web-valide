@@ -55,6 +55,90 @@ async function sendEmail({ to, subject, htmlContent, textContent }) {
 
 // Templates d'emails
 const templates = {
+    postInterested: (name, userName, postContent) => ({
+        subject: `${userName} est intéressé par votre post`,
+        htmlContent: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">👍 Quelqu'un est intéressé !</h1>
+                </div>
+                <div style="padding: 30px; background: #f8f8f8;">
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        Bonjour ${name},
+                    </p>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        <strong>${userName}</strong> est intéressé par votre post :
+                    </p>
+                    <div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px;">
+                        <p style="color: #666; font-style: italic; margin: 0;">
+                            "${postContent}..."
+                        </p>
+                    </div>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        Vous pouvez voir tous les utilisateurs intéressés par vos posts et leur envoyer un message.
+                    </p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.APP_URL || 'http://localhost:8080'}/my-interested" 
+                           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                  color: white; 
+                                  padding: 15px 30px; 
+                                  text-decoration: none; 
+                                  border-radius: 8px;
+                                  display: inline-block;">
+                            Voir les personnes intéressées
+                        </a>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                </div>
+            </div>
+        `,
+        textContent: `Bonjour ${name},\n\n${userName} est intéressé par votre post :\n"${postContent}..."\n\nVoir tous les intéressés : ${process.env.APP_URL}/my-interested`
+    }),
+
+    // ← NOUVEAU : Nouveau commentaire sur ton post
+    postComment: (name, userName, postContent, commentContent) => ({
+        subject: `${userName} a commenté votre post`,
+        htmlContent: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">💬 Nouveau commentaire !</h1>
+                </div>
+                <div style="padding: 30px; background: #f8f8f8;">
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        Bonjour ${name},
+                    </p>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        <strong>${userName}</strong> a commenté votre post :
+                    </p>
+                    <div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px;">
+                        <p style="color: #666; font-style: italic; margin: 0 0 10px 0;">
+                            Votre post : "${postContent}..."
+                        </p>
+                        <p style="color: #333; margin: 0; font-weight: 500;">
+                            💬 "${commentContent}..."
+                        </p>
+                    </div>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.APP_URL || 'http://localhost:8080'}/" 
+                           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                  color: white; 
+                                  padding: 15px 30px; 
+                                  text-decoration: none; 
+                                  border-radius: 8px;
+                                  display: inline-block;">
+                            Voir le commentaire
+                        </a>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+                    <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                </div>
+            </div>
+        `,
+        textContent: `Bonjour ${name},\n\n${userName} a commenté votre post :\nVotre post : "${postContent}..."\nCommentaire : "${commentContent}..."\n\nVoir : ${process.env.APP_URL}/`
+    }),
     welcome: (name) => ({
         subject: 'Bienvenue !',
         htmlContent: `
@@ -236,6 +320,20 @@ async function connectRabbitMQ() {
                         case 'new_follower':
                             emailTemplate = templates.newFollower(emailData.name, emailData.followerName);
                             break;
+                        case 'post_interested':
+                            emailTemplate = templates.postInterested(
+                                emailData.name,
+                                emailData.userName,
+                                emailData.postContent
+                            );
+                            break;
+                        case 'post_comment':
+                            emailTemplate = templates.postComment(
+                                emailData.name,
+                                emailData.userName,
+                                emailData.postContent,
+                                emailData.commentContent
+                            );
                         default:
                             throw new Error(`Unknown email type: ${emailData.type}`);
                     }
@@ -289,6 +387,12 @@ app.post('/send', async (req, res) => {
                 break;
             case 'new_follower':
                 emailTemplate = templates.newFollower(data.name, data.followerName);
+                break;
+            case 'post_interested':
+                emailTemplate = templates.postInterested(data.name, data.userName, data.postContent);
+                break;
+            case 'post_comment':
+                emailTemplate = templates.postComment(data.name, data.userName, data.postContent, data.commentContent);
                 break;
             default:
                 return res.status(400).json({ error: 'Invalid email type' });

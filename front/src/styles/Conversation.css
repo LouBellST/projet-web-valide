@@ -311,3 +311,29 @@
         font-size: 1.2rem;
     }
 }
+
+/* Ajout dans Conversation.css pour le lien profil */
+
+.conversation-header {
+    transition: background 0.2s;
+}
+
+.conversation-header:hover {
+    background: linear-gradient(135deg, #7c8fec 0%, #8557ad 100%);
+}
+
+.conversation-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.click-hint {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-style: italic;
+}
+
+.conversation-header:hover .click-hint {
+    color: rgba(255, 255, 255, 1);
+}

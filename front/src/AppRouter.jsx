@@ -12,6 +12,9 @@ import Conversation from './pages/Conversation';
 import Navbar from './components/Navbar';
 import PublicProfile from './pages/PublicProfile';
 import MessagesFloatingButton from './components/MessagesFloatingButton';
+import MyInterestedUsers from './pages/MyInterestedUsers';
+import InterestedFloatingButton from './components/InterestedFloatingButton';
+
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
@@ -81,6 +84,7 @@ function AppRouter() {
             <ConditionalNavbar />
 
             {user && <MessagesFloatingButton />}
+            {user && <InterestedFloatingButton />}
 
             <Routes>
                 {/* Routes publiques */}
@@ -165,6 +169,15 @@ function AppRouter() {
                     element={
                         <ProtectedRoute>
                             <Conversation />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/my-interested"
+                    element={
+                        <ProtectedRoute>
+                            <MyInterestedUsers />
                         </ProtectedRoute>
                     }
                 />

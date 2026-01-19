@@ -141,6 +141,27 @@ function Feed() {
         }
     };
 
+    const handleInterested = async (postId, isInterested) => {
+        try {
+            if (isInterested) {
+                await authFetch(`/posts/posts/${postId}/interested/${user.id}`, {
+                    method: 'DELETE'
+                });
+            } else {
+                await authFetch(`/posts/posts/${postId}/interested`, {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: user.id, postId })
+                });
+            }
+
+            loadFeed();
+        } catch (error) {
+            console.error('Error toggling interested:', error);
+        }
+    };
+
+    ///posts/:postId/interested
+
     // Charger les commentaires d'un post
     const loadComments = async (postId) => {
         try {
@@ -384,6 +405,13 @@ function Feed() {
                                     className={`btn-action ${post.isBookmarked ? 'bookmarked' : ''}`}
                                 >
                                     {post.isBookmarked ? '🔖' : '📑'}
+                                </button>
+
+                                <button
+                                    onClick={() => handleInterested(post._id, post.isInterested)}
+                                    className="btn-action"
+                                >
+                                    {post.isInterested ? '👍 Interessé' : '📌 Interessé'}
                                 </button>
                             </div>
                             {showComments[post._id] && (
