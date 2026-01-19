@@ -53,8 +53,8 @@ Application de réseau social complète basée sur une architecture microservice
 ### 1. Cloner le repository
 
 ```bash
-git clone <votre-repo-url>
-cd projet-web
+git clone https://github.com/LouBellST/projet-web-valide.git
+cd projet-web-valide
 ```
 
 ### 2. Configuration des variables d'environnement
@@ -66,16 +66,24 @@ Créer un fichier `.env` à la racine du projet :
 SENDINBLUE_API_KEY=votre_clé_api_brevo
 ```
 
+Créer un fichier `.env` dans /email :
+
+```bash
+# Email service (optionnel en dev)
+BREVO_API_KEY=votre_clé_api_brevo
+```
+
 > **Note:** Sans clé API Brevo, les emails seront affichés dans les logs (mode développement).
 
 ### 3. Lancer l'application
 
 ```bash
 # Construire et démarrer tous les services
-docker-compose up --build
+docker-compose -f docker-compose.dev.yml up --build
+
 
 # Ou en arrière-plan
-docker-compose up -d --build
+docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
 ### 4. Vérifier que tous les services sont actifs
@@ -225,7 +233,7 @@ projet-web/
 │   └── nginx.conf.dev
 ├── docker-compose.yml       # Orchestration services
 ├── swagger.yaml             # Documentation API OpenAPI
-└── README.md               # Ce fichier
+└── README.md               # This file
 ```
 
 ## 🛠️ Développement
@@ -330,6 +338,6 @@ docker-compose up mongodb
 ```
 
 
-** Autres **
+**Autres**
 
 Pour toute question, consulter la documentation Swagger : http://localhost:8080/api-docs

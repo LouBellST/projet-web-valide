@@ -52,7 +52,6 @@ function TagFeed() {
                     })
                 });
             }
-
             loadTagPosts();
         } catch (error) {
             console.error('Error toggling like:', error);
@@ -71,29 +70,9 @@ function TagFeed() {
                     body: JSON.stringify({ userId: user.id, postId })
                 });
             }
-
             loadTagPosts();
         } catch (error) {
             console.error('Error toggling bookmark:', error);
-        }
-    };
-
-    const handleInterested = async (postId, isInterested) => {
-        try {
-            if (isInterested) {
-                await authFetch(`/posts/posts/${postId}/interested/${user.id}`, {
-                    method: 'DELETE'
-                });
-            } else {
-                await authFetch(`/posts/posts/${postId}/interested`, {
-                    method: 'POST',
-                    body: JSON.stringify({ userId: user.id, postId })
-                });
-            }
-
-            loadTagPosts();
-        } catch (error) {
-            console.error('Error toggling interested:', error);
         }
     };
 
@@ -163,7 +142,6 @@ function TagFeed() {
                             <div className="post-content">
                                 <p>{post.content}</p>
 
-                                {/* Tags */}
                                 {post.tags && post.tags.length > 0 && (
                                     <div className="post-tags">
                                         {post.tags.map(t => (
@@ -206,19 +184,13 @@ function TagFeed() {
                                     {post.isBookmarked ? '🔖' : '📑'}
                                 </button>
 
-                                <button
-                                    onClick={() => handleInterested(post._id, post.isInterested)}
-                                    className="btn-action"
-                                >
-                                    {post.isInterested ? '📌 Interessé' : 'Pas Interessé'}
-                                </button>
+
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* Pagination si nécessaire */}
             {pagination && pagination.pages > 1 && (
                 <div className="pagination">
                     <button

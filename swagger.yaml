@@ -19,8 +19,6 @@ info:
 servers:
   - url: http://localhost:8080
     description: Développement (Docker Compose)
-  - url: https://api.projetweb.com
-    description: Production
 
 tags:
   - name: Auth
@@ -35,13 +33,6 @@ tags:
     description: Service d'envoi d'emails (asynchrone via RabbitMQ)
 
 components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Token JWT obtenu via /auth/login ou /auth/register
-
   schemas:
     User:
       type: object
@@ -117,9 +108,6 @@ components:
         isBookmarked:
           type: boolean
           description: Si l'utilisateur courant a sauvegardé ce post
-        isInterested:
-          type: boolean
-          description: Si l'utilisateur courant est intéressé par ce post
         createdAt:
           type: string
           format: date-time
@@ -274,6 +262,13 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtenu via /auth/login ou /auth/register
 
 paths:
   /auth:
@@ -739,6 +734,7 @@ paths:
       tags:
         - Users
       summary: Suivre un utilisateur
+      description: Envoie un email de notification au suivi
       security:
         - BearerAuth: []
       parameters:
@@ -874,6 +870,32 @@ paths:
                       type: object
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/stats:
+    get:
+      tags:
+        - Users
+      summary: Statistiques utilisateur
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistiques
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  followers:
+                    type: integer
+                  following:
+                    type: integer
 
   /posts:
     get:
@@ -1142,6 +1164,7 @@ paths:
       tags:
         - Posts
       summary: Liker un post
+      description: Pas d'email de notification pour les likes
       security:
         - BearerAuth: []
       parameters:
@@ -1216,6 +1239,7 @@ paths:
       tags:
         - Posts
       summary: Ajouter un post aux bookmarks
+      description: Pas d'email de notification pour les bookmarks
       security:
         - BearerAuth: []
       parameters:
@@ -1323,110 +1347,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /posts/{postId}/interested:
-    post:
-      tags:
-        - Posts
-      summary: Marquer comme intéressé par un post
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: postId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - userId
-              properties:
-                userId:
-                  type: string
-                userName:
-                  type: string
-      responses:
-        '201':
-          description: Intérêt enregistré
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /posts/{postId}/uninterested:
-    delete:
-      tags:
-        - Posts
-      summary: Retirer l'intérêt pour un post
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: postId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: userId
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Intérêt retiré
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /posts/{postId}/interested-users:
-    get:
-      tags:
-        - Posts
-      summary: Récupérer les utilisateurs intéressés par un post
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: postId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Liste des utilisateurs intéressés
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  interested:
-                    type: array
-                    items:
-                      type: object
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /posts/{postId}/comments:
     get:
       tags:
@@ -1461,6 +1381,7 @@ paths:
       tags:
         - Posts
       summary: Ajouter un commentaire à un post
+      description: Pas d'email de notification pour les commentaires
       security:
         - BearerAuth: []
       parameters:
@@ -1723,7 +1644,7 @@ paths:
       description: |
         Enqueue un email pour envoi asynchrone via RabbitMQ.
         Types d'emails supportés welcome, forgot_password, reset_password, 
-        new_message, post_interested, new_comment
+        new_message, new_follower
       requestBody:
         required: true
         content:
@@ -1741,18 +1662,13 @@ paths:
                     - forgot_password
                     - reset_password
                     - new_message
-                    - post_interested
-                    - new_comment
+                    - new_follower
                 email:
                   type: string
                   format: email
                 name:
                   type: string
                 senderName:
-                  type: string
-                postContent:
-                  type: string
-                commentAuthor:
                   type: string
       responses:
         '202':

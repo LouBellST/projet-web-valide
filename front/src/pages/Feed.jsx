@@ -14,11 +14,11 @@ function Feed() {
     const [imagePreview, setImagePreview] = useState(null);
     const [showCreatePost, setShowCreatePost] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [feedFilter, setFeedFilter] = useState('all'); // 'all' ou 'following'
-    const [showComments, setShowComments] = useState({}); // { postId: true/false }
-    const [comments, setComments] = useState({}); // { postId: [comments] }
-    const [commentText, setCommentText] = useState({}); // { postId: "texte" }
-    const [loadingComments, setLoadingComments] = useState({}); // { postId: true/false }
+    const [feedFilter, setFeedFilter] = useState('all');
+    const [showComments, setShowComments] = useState({});
+    const [comments, setComments] = useState({});
+    const [commentText, setCommentText] = useState({});
+    const [loadingComments, setLoadingComments] = useState({});
 
     useEffect(() => {
         loadFeed();
@@ -27,8 +27,6 @@ function Feed() {
     const loadFeed = async () => {
         try {
             setLoading(true);
-
-            // Charger le feed selon le filtre
             const followingOnly = feedFilter === 'following' ? 'true' : 'false';
             const response = await authFetch(`/posts/posts/feed?userId=${user.id}&limit=50&followingOnly=${followingOnly}`);
 
@@ -83,11 +81,8 @@ function Feed() {
             }
 
             const data = await response.json();
-
-            // Ajouter le nouveau post en haut du feed
             setPosts([data.post, ...posts]);
 
-            // Reset
             setNewPostContent('');
             setNewPostImage(null);
             setImagePreview(null);
@@ -115,7 +110,6 @@ function Feed() {
                     })
                 });
             }
-
             loadFeed();
         } catch (error) {
             console.error('Error toggling like:', error);
@@ -134,35 +128,13 @@ function Feed() {
                     body: JSON.stringify({ userId: user.id, postId })
                 });
             }
-
             loadFeed();
         } catch (error) {
             console.error('Error toggling bookmark:', error);
         }
     };
 
-    const handleInterested = async (postId, isInterested) => {
-        try {
-            if (isInterested) {
-                await authFetch(`/posts/posts/${postId}/interested/${user.id}`, {
-                    method: 'DELETE'
-                });
-            } else {
-                await authFetch(`/posts/posts/${postId}/interested`, {
-                    method: 'POST',
-                    body: JSON.stringify({ userId: user.id, postId })
-                });
-            }
 
-            loadFeed();
-        } catch (error) {
-            console.error('Error toggling interested:', error);
-        }
-    };
-
-    ///posts/:postId/interested
-
-    // Charger les commentaires d'un post
     const loadComments = async (postId) => {
         try {
             setLoadingComments({ ...loadingComments, [postId]: true });
@@ -178,7 +150,6 @@ function Feed() {
         }
     };
 
-    // Toggle affichage des commentaires
     const toggleComments = async (postId) => {
         const isShowing = showComments[postId];
         setShowComments({ ...showComments, [postId]: !isShowing });
@@ -188,7 +159,6 @@ function Feed() {
         }
     };
 
-    // Soumettre un commentaire
     const handleCommentSubmit = async (postId) => {
         const text = commentText[postId];
         if (!text || !text.trim()) return;
@@ -203,20 +173,14 @@ function Feed() {
                 })
             });
 
-            // Recharger les commentaires
             await loadComments(postId);
-
-            // Reset le champ
             setCommentText({ ...commentText, [postId]: '' });
-
-            // Recharger le feed pour mettre à jour le compteur
             loadFeed();
         } catch (error) {
             console.error('Error submitting comment:', error);
         }
     };
 
-    // Naviguer vers le profil public
     const handleAuthorClick = (authorId) => {
         if (authorId === user.id) {
             navigate('/profile');
@@ -249,7 +213,6 @@ function Feed() {
                 </button>
             </div>
 
-            {/* Toggle Tous / Abonnements */}
             <div className="feed-filter">
                 <button
                     className={`filter-btn ${feedFilter === 'all' ? 'active' : ''}`}
@@ -265,7 +228,6 @@ function Feed() {
                 </button>
             </div>
 
-            {/* Formulaire de création de post */}
             {showCreatePost && (
                 <div className="create-post-card">
                     <form onSubmit={handleCreatePost}>
@@ -317,7 +279,6 @@ function Feed() {
                 </div>
             )}
 
-            {/* Liste des posts */}
             <div className="posts-list">
                 {posts.length === 0 ? (
                     <div className="no-posts">
@@ -361,7 +322,6 @@ function Feed() {
                             <div className="post-content">
                                 <p>{post.content}</p>
 
-                                {/* Tags */}
                                 {post.tags && post.tags.length > 0 && (
                                     <div className="post-tags">
                                         {post.tags.map(tag => (
@@ -407,13 +367,9 @@ function Feed() {
                                     {post.isBookmarked ? '🔖' : '📑'}
                                 </button>
 
-                                <button
-                                    onClick={() => handleInterested(post._id, post.isInterested)}
-                                    className="btn-action"
-                                >
-                                    {post.isInterested ? '📌 Interessé' : 'Pas Interessé'}
-                                </button>
+
                             </div>
+
                             {showComments[post._id] && (
                                 <div className="comments-section">
                                     {loadingComments[post._id] ? (

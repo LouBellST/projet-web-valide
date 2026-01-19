@@ -499,7 +499,7 @@ function Profile() {
                             setShowModal('following');
                         }}
                     >
-                        <strong>{profile.followingCount - 1 || 0}</strong>
+                        <strong>{profile.followingCount || 0}</strong>
                         <span>Abonnements</span>
                     </button>
                 </div>
